@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import register from "./src/routes/login";
+import { register, refresh } from "./src/routes/login";
 import { jsonResponse } from "./src/utils/jsonHelper";
 
 async function main() {
@@ -46,7 +46,7 @@ async function handleRequest(request: Request): Promise<Response> {
 
       case "/refresh": {
         console.log("refreshing: ", request);
-        return jsonResponse({ message: "refresh" });
+        return await refresh(request);
       }
 
       default: {

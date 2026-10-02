@@ -1,7 +1,7 @@
 import { userController } from "../controllers/userController";
 import { jsonResponse } from "../utils/jsonHelper";
 
-export default async function register(request: Request) {
+export async function register(request: Request) {
   try {
     console.log("trying to register: ", request);
     const { email, name, password } = (await request.json()) as {
@@ -45,3 +45,15 @@ export default async function register(request: Request) {
 
 //     return new Response
 // }
+
+export async function refresh(request: Request): Promise<Response> {
+    try {
+        const body = await request.json();
+        console.log('refresh function: ', body)
+        const {refreshToken} = body;
+
+        if(!refreshToken) {
+            return jsonResponse({error: "Refresh token required"}, 400)
+        }
+    }
+}
