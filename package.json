@@ -8,9 +8,14 @@
     "dev": "bun --watch run index.ts"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bun": "^1.4.2"
   },
   "peerDependencies": {
     "typescript": "^7"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "jose": "^6.2.12"
   }
 }
