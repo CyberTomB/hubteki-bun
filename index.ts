@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import register from "./src/routes/login";
-import { jsonResponse } from "./src/middleware/auth";
+import { jsonResponse } from "./src/utils/jsonHelper";
 
-// Connect to database
 async function main() {
+  // Connect to database
   try {
     await mongoose.connect(process.env.DB_CONNECTION_STRING || "");
     console.log("You successfully connected to MongoDB!");
@@ -36,6 +36,17 @@ async function handleRequest(request: Request): Promise<Response> {
 
       case "/register": {
         return await register(request);
+      }
+
+      case "/login": {
+        console.log("login endpoint");
+        return jsonResponse({ message: "login" });
+        // return await verifyRefreshToken(request.accessToken);
+      }
+
+      case "/refresh": {
+        console.log("refreshing: ", request);
+        return jsonResponse({ message: "refresh" });
       }
 
       default: {

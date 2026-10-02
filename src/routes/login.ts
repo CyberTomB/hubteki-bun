@@ -1,5 +1,5 @@
 import { userController } from "../controllers/userController";
-import { jsonResponse } from "../middleware/auth";
+import { jsonResponse } from "../utils/jsonHelper";
 
 export default async function register(request: Request) {
   try {

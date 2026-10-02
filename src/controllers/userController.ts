@@ -1,7 +1,7 @@
 import { Model, Schema } from "mongoose";
 import { User, type IUser } from "../models/user";
 import { randomUUIDv7 } from "bun";
-import { jsonResponse } from "../middleware/auth";
+import { jsonResponse } from "../utils/jsonHelper";
 
 class UserController {
   public async createUser(name: string, email: string, password: string) {
