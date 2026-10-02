@@ -1,0 +1,16 @@
+{
+  "name": "hubteki-bun",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --watch run index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
