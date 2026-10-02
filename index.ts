@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import register from "./src/routes/login";
+import { jsonResponse } from "./src/middleware/auth";
 
 // Connect to database
 async function main() {
@@ -21,11 +23,34 @@ async function shutdown() {
   process.exit();
 }
 
+async function handleRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method;
+
+  try {
+    switch (path) {
+      case "/": {
+        return jsonResponse({ message: "Hello!" });
+      }
+
+      case "/register": {
+        return await register(request);
+      }
+
+      default: {
+        return jsonResponse({ error: "Could not service this request" }, 500);
+      }
+    }
+  } catch (error) {
+    console.error("Request error", error);
+    return jsonResponse({ error: "Internal server error" }, 500);
+  }
+}
+
 const server = Bun.serve({
   port: 3000,
-  routes: {
-    "/": () => new Response("Bun! For real!"),
-  },
+  fetch: handleRequest,
 });
 
 await main();
