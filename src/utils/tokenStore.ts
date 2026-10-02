@@ -31,6 +31,10 @@ export function storeRefreshToken(
   });
 }
 
+export function getStoredToken(tokenId: string): StoredToken | undefined {
+  return refreshTokens.get(tokenId);
+}
+
 // TODO: replace with Mongo
 export function revokeToken(tokenId: string): boolean {
   const token = refreshTokens.get(tokenId);

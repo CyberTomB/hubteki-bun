@@ -4,8 +4,13 @@ import { randomUUIDv7 } from "bun";
 import { jsonResponse } from "../utils/jsonHelper";
 
 class UserController {
-  public async createUser(name: string, email: string, password: string) {
+  public async createUser(userInfo: {
+    name: string;
+    email: string;
+    password: string;
+  }) {
     console.log("checking for existing user");
+    const { name, email, password } = userInfo;
     const existingUser = (await User.findOne({ email: email })) ?? null;
 
     if (existingUser) {
@@ -31,9 +36,11 @@ class UserController {
     email: string,
     password: string,
   ): Promise<IUser | null> {
+    console.log("lookup user: ", email);
     const user = await User.findOne({ email: email });
 
     if (!user) {
+      console.log("no user found");
       await Bun.password.hash(password);
       return null;
     }

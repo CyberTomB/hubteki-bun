@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { register, refresh } from "./src/routes/login";
+import login, { register, refresh } from "./src/routes/login";
 import { jsonResponse } from "./src/utils/jsonHelper";
 
 async function main() {
@@ -40,12 +40,11 @@ async function handleRequest(request: Request): Promise<Response> {
 
       case "/login": {
         console.log("login endpoint");
-        return jsonResponse({ message: "login" });
-        // return await verifyRefreshToken(request.accessToken);
+        return login(request);
       }
 
       case "/refresh": {
-        console.log("refreshing: ", request);
+        console.log("refreshing: ");
         return await refresh(request);
       }
 
@@ -61,7 +60,13 @@ async function handleRequest(request: Request): Promise<Response> {
 
 const server = Bun.serve({
   port: 3000,
-  fetch: handleRequest,
+  fetch(req) {
+    if (req.method === "OPTIONS") {
+      return jsonResponse({}, 204);
+    }
+
+    return handleRequest(req);
+  },
 });
 
 await main();
