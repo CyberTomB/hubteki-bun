@@ -9,13 +9,15 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
-    "@types/bun": "^1.4.2"
+    "@types/bun": "^1.4.2",
+    "@types/mongoose": "^5.11.97"
   },
   "peerDependencies": {
     "typescript": "^7"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "jose": "^6.2.12"
+    "jose": "^6.2.12",
+    "mongoose": "^9.10.3"
   }
 }
