@@ -1,37 +1,14 @@
-interface StoredToken {
-  tokenId: string;
-  userId: string;
-  familyId: string;
-  deviceInfo: string;
-  createdAt: Date;
-  expiresAt: Date;
-  revoked: boolean;
-}
+import { Token, type IToken } from "../models/token";
+
 // TODO - replace with mongoDB
-const refreshTokens = new Map<string, StoredToken>();
+const refreshTokens = new Map<string, IToken>();
 
-export function storeRefreshToken(
-  tokenId: string,
-  userId: string,
-  familyId: string,
-  deviceInfo: string,
-  expiresInDays: number = 7,
-): void {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + expiresInDays);
-
-  refreshTokens.set(tokenId, {
-    tokenId,
-    userId,
-    familyId,
-    deviceInfo,
-    createdAt: new Date(),
-    expiresAt,
-    revoked: false,
-  });
+export async function storeRefreshToken(): Promise<void> {
+  const data = await Token.create();
+  console.log("token saved: ", data);
 }
 
-export function getStoredToken(tokenId: string): StoredToken | undefined {
+export function getStoredToken(tokenId: string): IToken | undefined {
   return refreshTokens.get(tokenId);
 }
 
@@ -61,7 +38,7 @@ export function revokeAllUserTokens(userId: string): void {
   }
 }
 
-export function getUserSessions(userId: string): StoredToken[] {
+export function getUserSessions(userId: string): IToken[] {
   return Array.from(refreshTokens.values()).filter(
     (t) => t.userId === userId && !t.revoked && t.expiresAt > new Date(),
   );

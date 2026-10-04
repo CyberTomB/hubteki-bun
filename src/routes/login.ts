@@ -1,4 +1,5 @@
 import { userController } from "../controllers/userController";
+import { Token } from "../models/token";
 import { jsonResponse } from "../utils/jsonHelper";
 import {
   createAccessToken,
@@ -49,12 +50,11 @@ export async function register(request: Request) {
   }
 }
 
-export default async function login(request: Request): Promise<Response> {
+export async function login(request: Request): Promise<Response> {
   try {
-    console.log("login: ", request);
+    console.log("login");
     const body = (await request.json()) as { email: string; password: string };
     const { email, password } = body;
-    // RETURN TOKEN PAIR
 
     const user = await userController.validateCredentials(email, password);
 
@@ -71,7 +71,16 @@ export default async function login(request: Request): Promise<Response> {
     const familyId = crypto.randomUUID();
 
     const deviceInfo = request.headers.get("User-Agent") || "Unknown";
-    storeRefreshToken(tokenId, user._id, familyId, deviceInfo);
+
+    const token = new Token({
+      tokenId: tokenId,
+      userId: user._id,
+      familyId: familyId,
+      deviceInfo: deviceInfo,
+    });
+
+    console.log("saving token in login", token.tokenId);
+    await token.save();
 
     return jsonResponse({
       accessToken,
@@ -81,28 +90,28 @@ export default async function login(request: Request): Promise<Response> {
     });
   } catch (e) {
     console.log(e);
-    return new Response();
+    return jsonResponse({ error: "Unable to login" }, 400);
   }
-
-  return new Response();
 }
 
 export async function refresh(request: Request): Promise<Response> {
-  console.log("refresh function fired: ", request);
+  console.log("refresh function fired");
   try {
     const body = (await request.json()) as { refreshToken: string };
-    console.log("contents of request body: ", body);
     const { refreshToken } = body;
 
     if (!refreshToken) {
+      console.info("no refresh token");
       return jsonResponse({ error: "Refresh token required" }, 400);
     }
 
+    console.log("attempting verify token");
     const payload = await verifyRefreshToken(refreshToken);
 
     const storedToken = getStoredToken(payload.jti as string);
 
     if (!storedToken) {
+      console.info("could not find stored token");
       return jsonResponse({ error: "Refresh token not found" }, 401);
     }
 
@@ -123,12 +132,15 @@ export async function refresh(request: Request): Promise<Response> {
     const { token: newRefreshToken, tokenId: newTokenId } =
       await createRefreshToken(payload.sub as string, payload.email as string);
 
-    storeRefreshToken(
-      newTokenId,
-      payload.sub as string,
-      storedToken.familyId,
-      storedToken.deviceInfo,
-    );
+    const token = new Token({
+      tokenId: newTokenId,
+      userId: payload.sub as string,
+      familyId: storedToken.familyId,
+      deviceInfo: storedToken.deviceInfo,
+    });
+
+    console.log("saving token: ", token.tokenId);
+    await token.save();
 
     return jsonResponse({
       accessToken: newAccessToken,

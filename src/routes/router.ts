@@ -1,5 +1,5 @@
 import { jsonResponse } from "../utils/jsonHelper";
-import login, { refresh, register } from "./login";
+import { login, refresh, register } from "./login";
 
 export default async function handleRequest(
   request: Request,
@@ -19,17 +19,25 @@ export default async function handleRequest(
       }
 
       case "/login": {
-        console.log("login endpoint");
-        return login(request);
+        console.log("[ROUTER]: login endpoint");
+        return await login(request);
       }
 
       case "/refresh": {
-        console.log("refreshing: ");
+        console.log("[ROUTER] refreshing: ");
+        const ref = await refresh(request);
+        console.log("[ROUTER] returning: ", ref);
+        return ref;
         return await refresh(request);
       }
 
       default: {
-        return jsonResponse({ error: "Could not service this request" }, 500);
+        return jsonResponse(
+          {
+            error: `Unable to find the resource located at ${request.destination}`,
+          },
+          404,
+        );
       }
     }
   } catch (error) {
