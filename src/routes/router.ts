@@ -1,8 +1,9 @@
+import type { BunRequest } from "bun";
 import { jsonResponse } from "../utils/jsonHelper";
 import { login, refresh, register } from "./login";
 
 export default async function handleRequest(
-  request: Request,
+  request: BunRequest,
 ): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;

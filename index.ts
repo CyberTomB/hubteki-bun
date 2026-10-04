@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { jsonResponse } from "./src/utils/jsonHelper";
 import handleRequest from "./src/routes/router";
+import BunRequest from "bun";
+import { login, refresh, register } from "./src/routes/login";
 
 async function main() {
   // Connect to database
@@ -25,12 +27,23 @@ async function shutdown() {
 
 const server = Bun.serve({
   port: 3000,
-  fetch(req) {
-    if (req.method === "OPTIONS") {
-      return jsonResponse({}, 204);
-    }
-
-    return handleRequest(req);
+  routes: {
+    "/": (req) => jsonResponse({ message: "OK" }),
+    "/login": {
+      POST: async (req) => {
+        return await login(req);
+      },
+    },
+    "/register": {
+      POST: async (req) => {
+        return await register(req);
+      },
+    },
+    "/refresh": {
+      POST: async (req) => {
+        return await refresh(req);
+      },
+    },
   },
 });
 

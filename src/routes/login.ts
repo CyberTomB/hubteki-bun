@@ -1,3 +1,4 @@
+import type { BunRequest } from "bun";
 import { userController } from "../controllers/userController";
 import { Token } from "../models/token";
 import { jsonResponse } from "../utils/jsonHelper";
@@ -50,7 +51,7 @@ export async function register(request: Request) {
   }
 }
 
-export async function login(request: Request): Promise<Response> {
+export async function login(request: BunRequest): Promise<Response> {
   try {
     console.log("login");
     const body = (await request.json()) as { email: string; password: string };
@@ -63,6 +64,7 @@ export async function login(request: Request): Promise<Response> {
     }
 
     const accessToken = await createAccessToken(user._id, user.email);
+
     const { token: refreshToken, tokenId } = await createRefreshToken(
       user._id,
       user.email,
@@ -72,6 +74,7 @@ export async function login(request: Request): Promise<Response> {
 
     const deviceInfo = request.headers.get("User-Agent") || "Unknown";
 
+    // SECTION - Save Cookie (extract later?)
     const token = new Token({
       tokenId: tokenId,
       userId: user._id,
@@ -82,11 +85,17 @@ export async function login(request: Request): Promise<Response> {
     console.log("saving token in login", token.tokenId);
     await token.save();
 
+    request.cookies.set("refreshToken", refreshToken, {
+      maxAge: 60 * 60 * 24 * 7,
+      httpOnly: true,
+      secure: true,
+      path: "/",
+    });
+
     return jsonResponse({
-      accessToken,
-      refreshToken,
-      tokenType: "Bearer",
-      expiresIn: 900,
+      message: "Login succesful",
+      token: accessToken,
+      user: user.name,
     });
   } catch (e) {
     console.log(e);
