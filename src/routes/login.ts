@@ -14,7 +14,6 @@ import {
   storeRefreshToken,
 } from "../utils/tokenStore";
 import type { UserData } from "../models/user";
-import { stringToToken } from "typescript/unstable/ast";
 
 export async function register(request: Request) {
   try {
