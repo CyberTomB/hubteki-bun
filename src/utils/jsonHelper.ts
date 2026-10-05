@@ -1,4 +1,7 @@
-export function jsonResponse(data: object, status: number = 200): Response {
+export function jsonResponse<T extends object>(
+  data: T,
+  status: number = 200,
+): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {

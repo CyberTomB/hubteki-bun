@@ -1,10 +1,15 @@
-import { Model, model, Schema } from "mongoose";
+import { model, Schema } from "mongoose";
 
-export interface IUser {
+export interface DBUser {
   _id: string;
   name: string;
   email: string;
   passwordHash: string;
+}
+
+export interface UserData {
+  name: string;
+  email: string;
 }
 
 const userSchema = new Schema({

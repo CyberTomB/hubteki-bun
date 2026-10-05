@@ -13,6 +13,8 @@ import {
   revokeTokenFamily,
   storeRefreshToken,
 } from "../utils/tokenStore";
+import type { UserData } from "../models/user";
+import { stringToToken } from "typescript/unstable/ast";
 
 export async function register(request: Request) {
   try {
@@ -95,10 +97,14 @@ export async function login(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return jsonResponse({
+    return jsonResponse<{
+      message: string;
+      accessToken: string;
+      user: UserData;
+    }>({
       message: "Login succesful",
-      token: accessToken,
-      user: user.name,
+      accessToken: accessToken,
+      user: { name: user.name, email: user.email },
     });
   } catch (e) {
     console.log(e);
@@ -170,9 +176,9 @@ export async function refresh(request: BunRequest): Promise<Response> {
       secure: true,
       path: "/refresh",
     });
-    return jsonResponse({
+    return jsonResponse<{ accessToken: string; user: UserData }>({
       accessToken: newAccessToken,
-      user: user._id,
+      user: { email: user.email, name: user.name },
     });
   } catch (error) {
     console.log(error);

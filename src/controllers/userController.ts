@@ -1,5 +1,5 @@
 import { Model, Schema } from "mongoose";
-import { User, type IUser } from "../models/user";
+import { User, type DBUser } from "../models/user";
 import { randomUUIDv7 } from "bun";
 import { jsonResponse } from "../utils/jsonHelper";
 
@@ -35,7 +35,7 @@ class UserController {
   public async validateCredentials(
     email: string,
     password: string,
-  ): Promise<IUser | null> {
+  ): Promise<DBUser | null> {
     console.log("lookup user: ", email);
     const user = await User.findOne({ email: email });
 
