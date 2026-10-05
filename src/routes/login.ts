@@ -133,6 +133,13 @@ export async function refresh(request: BunRequest): Promise<Response> {
       return jsonResponse({ error: "Refresh token not found" }, 401);
     }
 
+    console.log(
+      "[login] found the token with id: ",
+      storedToken.tokenId,
+      " revoked status is: ",
+      storedToken.revoked,
+    );
+
     if (storedToken.revoked) {
       revokeTokenFamily(storedToken.familyId);
       return jsonResponse(
@@ -169,12 +176,12 @@ export async function refresh(request: BunRequest): Promise<Response> {
       return jsonResponse({ error: "Something went wrong" }, 500);
     }
 
-    console.log("refreshed, user is: ", user.name);
+    console.log("refreshed, user is: ", user.name, "\n");
     request.cookies.set("refreshToken", newRefreshToken, {
       maxAge: 60 * 60 * 24 * 7,
       httpOnly: true,
       secure: true,
-      path: "/refresh",
+      path: "",
     });
     return jsonResponse<{ accessToken: string; user: UserData }>({
       accessToken: newAccessToken,
@@ -196,6 +203,7 @@ export async function logout(request: BunRequest): Promise<Response> {
     }
 
     const payload = await verifyRefreshToken(refreshToken);
+    console.log("[logout] revoking token: ", payload.jti);
     await revokeToken(payload.jti as string);
 
     return jsonResponse({ message: "Logged out successfully" });

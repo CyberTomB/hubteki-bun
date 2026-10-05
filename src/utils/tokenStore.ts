@@ -9,6 +9,7 @@ export async function storeRefreshToken(): Promise<void> {
 }
 
 export async function getStoredToken(tokenId: string): Promise<IToken | null> {
+  console.log("[token store] Finding the token");
   return await Token.findOne({ tokenId: tokenId });
 }
 

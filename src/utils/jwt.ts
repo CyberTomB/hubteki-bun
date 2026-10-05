@@ -82,6 +82,7 @@ export async function verifyAccessToken(token: string): Promise<TokenPayload> {
 
 export async function verifyRefreshToken(token: string): Promise<TokenPayload> {
   try {
+    console.log("[jwt] Verifying the token");
     const { payload } = await jwtVerify(token, refreshSecret, {
       issuer: issuer,
       audience: audience,
