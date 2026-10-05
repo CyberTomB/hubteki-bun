@@ -103,11 +103,11 @@ export async function login(request: BunRequest): Promise<Response> {
   }
 }
 
-export async function refresh(request: Request): Promise<Response> {
+export async function refresh(request: BunRequest): Promise<Response> {
   console.log("refresh function fired");
   try {
-    const body = (await request.json()) as { refreshToken: string };
-    const { refreshToken } = body;
+    console.log("attempting to get token from cookies");
+    const refreshToken = request.cookies.get("refreshToken");
 
     if (!refreshToken) {
       console.info("no refresh token");
@@ -117,7 +117,7 @@ export async function refresh(request: Request): Promise<Response> {
     console.log("attempting verify token");
     const payload = await verifyRefreshToken(refreshToken);
 
-    const storedToken = getStoredToken(payload.jti as string);
+    const storedToken = await getStoredToken(payload.jti as string);
 
     if (!storedToken) {
       console.info("could not find stored token");
@@ -132,8 +132,10 @@ export async function refresh(request: Request): Promise<Response> {
       );
     }
 
+    // FIXME - this function needs to use the DB
     revokeToken(payload.jti as string);
 
+    // FIXME - Replace with a "rotate token" function, probably, set tokens on req object instead
     const newAccessToken = await createAccessToken(
       payload.sub as string,
       payload.email as string,
@@ -151,11 +153,17 @@ export async function refresh(request: Request): Promise<Response> {
     console.log("saving token: ", token.tokenId);
     await token.save();
 
+    const user = await userController.getUserById(payload.sub);
+
+    if (!user) {
+      console.log("valid token, could not find user");
+      return jsonResponse({ error: "Something went wrong" }, 500);
+    }
+
+    console.log("refshed, user is: ", user.name);
     return jsonResponse({
       accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      tokenType: "Bearer",
-      expiresIn: 900,
+      user: user._id,
     });
   } catch (error) {
     console.log(error);

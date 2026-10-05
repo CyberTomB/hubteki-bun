@@ -18,9 +18,9 @@ async function main() {
 
 async function shutdown() {
   await mongoose.connection.close();
-  console.log("Disconnected from database");
+  console.log("[shutdown] Disconnected from database");
   await server.stop(true);
-  console.log("Server stopped, cleaning up resources");
+  console.log("[shutdown] Server stopped, cleaning up resources");
 
   process.exit();
 }
@@ -30,6 +30,7 @@ const server = Bun.serve({
   routes: {
     "/": (req) => jsonResponse({ message: "OK" }),
     "/login": {
+      OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await login(req);
       },
@@ -40,6 +41,7 @@ const server = Bun.serve({
       },
     },
     "/refresh": {
+      OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await refresh(req);
       },
@@ -48,4 +50,4 @@ const server = Bun.serve({
 });
 
 await main();
-console.log(`Listening on ${server.url}`);
+console.log(`[Serer] Listening on ${server.url}`);

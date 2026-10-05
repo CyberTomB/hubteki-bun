@@ -8,8 +8,8 @@ export async function storeRefreshToken(): Promise<void> {
   console.log("token saved: ", data);
 }
 
-export function getStoredToken(tokenId: string): IToken | undefined {
-  return refreshTokens.get(tokenId);
+export async function getStoredToken(tokenId: string): Promise<IToken | null> {
+  return await Token.findOne({ tokenId: tokenId });
 }
 
 // TODO: replace with Mongo
