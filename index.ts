@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { DEV_HEADERS, jsonResponse } from "./src/utils/jsonHelper";
-import BunRequest from "bun";
+import BunRequest, { type ServerWebSocket } from "bun";
 import { login, logout, refresh, register } from "./src/routes/login";
+import type { WebSocketData } from "./src/models/websocket";
+import { connectionManager } from "./src/controllers/connections";
 
 async function main() {
   // Connect to database
@@ -24,7 +26,7 @@ async function shutdown() {
   process.exit();
 }
 
-const server = Bun.serve({
+const server: Bun.Server<WebSocketData> = Bun.serve({
   port: 3000,
   routes: {
     // "/": (req) => {
@@ -57,36 +59,65 @@ const server = Bun.serve({
   },
   websocket: {
     message(ws, message) {
-      console.log(`Received ${message}`);
-      // send back a message
-      ws.send(`You said: ${message}`);
+      const text = typeof message === "string" ? message : message.toString();
+      console.log(`[${ws.data.clientId}] Received: ${text}`);
+
+      connectionManager.broadcast(
+        JSON.stringify({
+          type: "message",
+          from: ws.data.clientId,
+          content: text,
+        }),
+        ws.data.clientId,
+      );
     },
     open: (ws) => {
-      console.log("Client connected");
+      console.log("[server] Opening connection...");
+      connectionManager.addClient(ws);
+
+      ws.send(
+        JSON.stringify({
+          type: "connected",
+          clientId: ws.data.clientId,
+          timestamp: Date.now(),
+        }),
+      );
     },
     close: (ws) => {
       console.log("Client disconnected");
+      connectionManager.removeClient(ws.data.clientId);
     },
   },
   fetch(req, server) {
     console.log("reached endpoint outside of routes");
     const url = new URL(req.url);
+    console.log("url request pathname: ", url.pathname);
 
     if (req.method === "OPTIONS") {
       console.log("handling preflight");
       return jsonResponse({});
     }
 
-    const upgrade = server.upgrade(req, {
-      headers: DEV_HEADERS,
-    });
+    if (url.pathname === "/room") {
+      const clientId = crypto.randomUUID();
+      const wsData: WebSocketData = {
+        clientId,
+        connectedAt: new Date(),
+        rooms: new Set(),
+      };
+      const upgrade = server.upgrade(req, {
+        data: wsData,
+        headers: DEV_HEADERS,
+      });
 
-    if (upgrade) {
-      console.log("upgrade success");
-      return undefined;
+      if (upgrade) {
+        console.log("upgrade success");
+        return undefined;
+      }
+
+      console.log("upgrade failed", server.pendingWebSockets);
     }
 
-    console.log("upgrade failed", server.pendingWebSockets);
     return jsonResponse({ error: "Failed to upgrade to websocket" }, 500);
   },
 });
