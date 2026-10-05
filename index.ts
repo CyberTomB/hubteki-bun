@@ -4,6 +4,7 @@ import BunRequest, { type ServerWebSocket } from "bun";
 import { login, logout, refresh, register } from "./src/routes/login";
 import type { WebSocketData } from "./src/models/websocket";
 import { connectionManager } from "./src/controllers/connections";
+import type { ChatMessage } from "./src/models/chat";
 
 async function main() {
   // Connect to database
@@ -29,10 +30,10 @@ async function shutdown() {
 const server: Bun.Server<WebSocketData> = Bun.serve({
   port: 3000,
   routes: {
-    // "/": (req) => {
-    //   console.log("base URL trigger", req.url);
-    //   return jsonResponse({ message: "OK" });
-    // },
+    "/": (req) => {
+      console.log("base URL trigger", req.url);
+      return jsonResponse({ message: "OK" });
+    },
     "/login": {
       OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
@@ -57,10 +58,52 @@ const server: Bun.Server<WebSocketData> = Bun.serve({
       },
     },
   },
+  fetch(req, server) {
+    console.log("reached endpoint outside of routes");
+    const url = new URL(req.url);
+    console.log("url request pathname: ", url.pathname);
+
+    if (req.method === "OPTIONS") {
+      console.log("handling preflight");
+      return jsonResponse({});
+    }
+
+    if (url.pathname === "/ws") {
+      const clientId = crypto.randomUUID();
+      const wsData: WebSocketData = {
+        clientId,
+        connectedAt: new Date(),
+        rooms: new Set(),
+      };
+      const upgrade = server.upgrade(req, {
+        data: wsData,
+        headers: DEV_HEADERS,
+      });
+
+      if (upgrade) {
+        console.log("upgrade success");
+        return undefined;
+      }
+
+      console.log("upgrade failed", server.pendingWebSockets);
+    }
+
+    return jsonResponse({ error: "Failed to upgrade to websocket" }, 500);
+  },
   websocket: {
-    message(ws, message) {
-      const text = typeof message === "string" ? message : message.toString();
-      console.log(`[${ws.data.clientId}] Received: ${text}`);
+    message(ws, rawMessage) {
+      let msg: ChatMessage;
+
+      try {
+        msg = JSON.parse(
+          typeof rawMessage === "string" ? rawMessage : rawMessage.toString(),
+        );
+      } catch {
+        ws.send(JSON.stringify({ type: "error", error: "Invalid JSON" }));
+        return;
+      }
+
+      console.log(`[${ws.data.clientId}] Received: ${msg}`);
 
       connectionManager.broadcast(
         JSON.stringify({
@@ -87,38 +130,6 @@ const server: Bun.Server<WebSocketData> = Bun.serve({
       console.log("Client disconnected");
       connectionManager.removeClient(ws.data.clientId);
     },
-  },
-  fetch(req, server) {
-    console.log("reached endpoint outside of routes");
-    const url = new URL(req.url);
-    console.log("url request pathname: ", url.pathname);
-
-    if (req.method === "OPTIONS") {
-      console.log("handling preflight");
-      return jsonResponse({});
-    }
-
-    if (url.pathname === "/room") {
-      const clientId = crypto.randomUUID();
-      const wsData: WebSocketData = {
-        clientId,
-        connectedAt: new Date(),
-        rooms: new Set(),
-      };
-      const upgrade = server.upgrade(req, {
-        data: wsData,
-        headers: DEV_HEADERS,
-      });
-
-      if (upgrade) {
-        console.log("upgrade success");
-        return undefined;
-      }
-
-      console.log("upgrade failed", server.pendingWebSockets);
-    }
-
-    return jsonResponse({ error: "Failed to upgrade to websocket" }, 500);
   },
 });
 
