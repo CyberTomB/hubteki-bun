@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { jsonResponse } from "./src/utils/jsonHelper";
+import { DEV_HEADERS, jsonResponse } from "./src/utils/jsonHelper";
 import BunRequest from "bun";
 import { login, logout, refresh, register } from "./src/routes/login";
 
@@ -27,7 +27,10 @@ async function shutdown() {
 const server = Bun.serve({
   port: 3000,
   routes: {
-    "/": (req) => jsonResponse({ message: "OK" }),
+    // "/": (req) => {
+    //   console.log("base URL trigger", req.url);
+    //   return jsonResponse({ message: "OK" });
+    // },
     "/login": {
       OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
@@ -51,6 +54,40 @@ const server = Bun.serve({
         return await logout(req);
       },
     },
+  },
+  websocket: {
+    message(ws, message) {
+      console.log(`Received ${message}`);
+      // send back a message
+      ws.send(`You said: ${message}`);
+    },
+    open: (ws) => {
+      console.log("Client connected");
+    },
+    close: (ws) => {
+      console.log("Client disconnected");
+    },
+  },
+  fetch(req, server) {
+    console.log("reached endpoint outside of routes");
+    const url = new URL(req.url);
+
+    if (req.method === "OPTIONS") {
+      console.log("handling preflight");
+      return jsonResponse({});
+    }
+
+    const upgrade = server.upgrade(req, {
+      headers: DEV_HEADERS,
+    });
+
+    if (upgrade) {
+      console.log("upgrade success");
+      return undefined;
+    }
+
+    console.log("upgrade failed", server.pendingWebSockets);
+    return jsonResponse({ error: "Failed to upgrade to websocket" }, 500);
   },
 });
 
