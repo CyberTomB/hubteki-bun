@@ -9,6 +9,7 @@ import {
 } from "../utils/jwt";
 import {
   getStoredToken,
+  revokeAllUserTokens,
   revokeToken,
   revokeTokenFamily,
   storeRefreshToken,
@@ -182,5 +183,23 @@ export async function refresh(request: BunRequest): Promise<Response> {
   } catch (error) {
     console.log(error);
     return jsonResponse({ error: "Invalid refresh token" }, 401);
+  }
+}
+
+export async function logout(request: BunRequest): Promise<Response> {
+  try {
+    const refreshToken = request.cookies.get("refreshToken");
+
+    if (!refreshToken) {
+      console.info("no refresh token");
+      return jsonResponse({ error: "Refresh token required" }, 400);
+    }
+
+    const payload = await verifyRefreshToken(refreshToken);
+    await revokeToken(payload.jti as string);
+
+    return jsonResponse({ message: "Logged out successfully" });
+  } catch (error) {
+    return jsonResponse({ message: "Logged out" });
   }
 }

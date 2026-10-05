@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
 import { jsonResponse } from "./src/utils/jsonHelper";
-import handleRequest from "./src/routes/router";
 import BunRequest from "bun";
-import { login, refresh, register } from "./src/routes/login";
+import { login, logout, refresh, register } from "./src/routes/login";
 
 async function main() {
   // Connect to database
@@ -44,6 +43,12 @@ const server = Bun.serve({
       OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await refresh(req);
+      },
+    },
+    "/logout": {
+      OPTIONS: () => jsonResponse({}, 204),
+      POST: async (req) => {
+        return await logout(req);
       },
     },
   },
