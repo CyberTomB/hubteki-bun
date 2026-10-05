@@ -13,13 +13,12 @@ export async function getStoredToken(tokenId: string): Promise<IToken | null> {
 }
 
 // TODO: replace with Mongo
-export function revokeToken(tokenId: string): boolean {
-  const token = refreshTokens.get(tokenId);
-  if (token) {
-    token.revoked = true;
-    return true;
-  }
-  return false;
+export async function revokeToken(tokenId: string): Promise<boolean> {
+  const value = await Token.updateOne({ tokenId: tokenId }, { revoked: true });
+
+  console.log("result of update: ", value);
+
+  return value.acknowledged;
 }
 
 export function revokeTokenFamily(familyId: string): void {

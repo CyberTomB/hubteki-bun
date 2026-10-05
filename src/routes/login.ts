@@ -54,6 +54,7 @@ export async function register(request: Request) {
 export async function login(request: BunRequest): Promise<Response> {
   try {
     console.log("login");
+    // SECTION - 2. Receive and validation Credentials
     const body = (await request.json()) as { email: string; password: string };
     const { email, password } = body;
 
@@ -63,6 +64,7 @@ export async function login(request: BunRequest): Promise<Response> {
       return jsonResponse({ error: "Invalid password or email" }, 401);
     }
 
+    // SECTION - 3. Generate Token pair: access & refresh
     const accessToken = await createAccessToken(user._id, user.email);
 
     const { token: refreshToken, tokenId } = await createRefreshToken(
@@ -74,7 +76,7 @@ export async function login(request: BunRequest): Promise<Response> {
 
     const deviceInfo = request.headers.get("User-Agent") || "Unknown";
 
-    // SECTION - Save Cookie (extract later?)
+    // SECTION - Save Refresh token to DB (extract later?)
     const token = new Token({
       tokenId: tokenId,
       userId: user._id,
@@ -85,11 +87,12 @@ export async function login(request: BunRequest): Promise<Response> {
     console.log("saving token in login", token.tokenId);
     await token.save();
 
+    // SECTION - 4. Return tokens as cookies
     request.cookies.set("refreshToken", refreshToken, {
       maxAge: 60 * 60 * 24 * 7,
       httpOnly: true,
       secure: true,
-      path: "/",
+      path: "/refresh",
     });
 
     return jsonResponse({
@@ -133,7 +136,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
     }
 
     // FIXME - this function needs to use the DB
-    revokeToken(payload.jti as string);
+    await revokeToken(payload.jti as string);
 
     // FIXME - Replace with a "rotate token" function, probably, set tokens on req object instead
     const newAccessToken = await createAccessToken(
@@ -160,7 +163,13 @@ export async function refresh(request: BunRequest): Promise<Response> {
       return jsonResponse({ error: "Something went wrong" }, 500);
     }
 
-    console.log("refshed, user is: ", user.name);
+    console.log("refreshed, user is: ", user.name);
+    request.cookies.set("refreshToken", newRefreshToken, {
+      maxAge: 60 * 60 * 24 * 7,
+      httpOnly: true,
+      secure: true,
+      path: "/refresh",
+    });
     return jsonResponse({
       accessToken: newAccessToken,
       user: user._id,
