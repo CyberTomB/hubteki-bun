@@ -15,6 +15,7 @@ import {
   storeRefreshToken,
 } from "../utils/tokenStore";
 import type { UserData } from "../models/user";
+import { authMiddleware } from "../middleware/auth";
 
 export async function register(request: Request) {
   try {
@@ -183,6 +184,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
       secure: true,
       path: "/refresh",
     });
+
     return jsonResponse<{ accessToken: string; user: UserData }>({
       accessToken: newAccessToken,
       user: { email: user.email, name: user.name },

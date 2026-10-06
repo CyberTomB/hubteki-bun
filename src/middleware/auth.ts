@@ -1,15 +1,17 @@
+import type { BunRequest } from "bun";
 import { jsonResponse } from "../utils/jsonHelper";
 import { verifyAccessToken, type TokenPayload } from "../utils/jwt";
 
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends BunRequest {
   user?: TokenPayload;
 }
 
 export async function authMiddleware(
   request: AuthenticatedRequest,
 ): Promise<AuthenticatedRequest | Response> {
-  const authHeader = request.headers.get("Authorization");
+  const authHeader = request.headers.get("authorization");
 
+  console.log("[auth middleware]: ", authHeader);
   if (!authHeader) {
     return jsonResponse(
       {
@@ -20,6 +22,7 @@ export async function authMiddleware(
   }
 
   if (!authHeader.startsWith("Bearer ")) {
+    console.log("token is not bearer");
     return jsonResponse(
       { error: "Invalid authorzation format. User: Bearer <token>" },
       401,
@@ -33,7 +36,10 @@ export async function authMiddleware(
   }
 
   try {
+    console.log("attempting verification with jwt");
     const payload = await verifyAccessToken(token);
+
+    console.log("received payload: ", payload);
 
     request.user = payload;
 
@@ -45,8 +51,8 @@ export async function authMiddleware(
 
 export function withAuth(
   handler: (req: AuthenticatedRequest) => Promise<Response>,
-): (req: Request) => Promise<Response> {
-  return async (request: Request): Promise<Response> => {
+): (req: BunRequest | Request) => Promise<Response> {
+  return async (request: BunRequest | Request): Promise<Response> => {
     const result = await authMiddleware(request as AuthenticatedRequest);
 
     if (result instanceof Response) {
