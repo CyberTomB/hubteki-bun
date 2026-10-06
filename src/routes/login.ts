@@ -181,7 +181,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
       maxAge: 60 * 60 * 24 * 7,
       httpOnly: true,
       secure: true,
-      path: "",
+      path: "/refresh",
     });
     return jsonResponse<{ accessToken: string; user: UserData }>({
       accessToken: newAccessToken,
