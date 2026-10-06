@@ -70,12 +70,15 @@ export async function verifyAccessToken(token: string): Promise<TokenPayload> {
     });
 
     if (payload.type !== "access") {
+      console.log("type is not access");
       throw new Error("Invalid token type (received type other than access)");
     }
 
+    console.log("returning payload: ", payload);
     return payload as TokenPayload;
   } catch (error) {
     // NOTE - Add logging?
+    console.log("some other error occurred: ", error);
     throw new Error("Invalid or expired access token");
   }
 }

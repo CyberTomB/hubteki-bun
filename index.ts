@@ -6,6 +6,7 @@ import type { WebSocketData } from "./src/models/websocket";
 import { connectionManager } from "./src/controllers/connections";
 import type { ChatMessage } from "./src/models/chat";
 import { verifyRefreshToken } from "./src/utils/jwt";
+import { authMiddleware, withAuth } from "./src/middleware/auth";
 
 async function main() {
   // Connect to database
@@ -42,6 +43,7 @@ const server: Bun.Server<WebSocketData> = Bun.serve({
       },
     },
     "/register": {
+      OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await register(req);
       },
@@ -60,88 +62,45 @@ const server: Bun.Server<WebSocketData> = Bun.serve({
     },
   },
   async fetch(req, server) {
-    const cookies = new Bun.CookieMap(req.headers.get("cookie")!);
-    const payload = await verifyRefreshToken(cookies.get("refreshToken")!);
-    const auth = req.headers.get("Authorization");
-
-    console.log("Received this payload: ", payload, "/n");
-    console.log("This was in authorization: ", auth, "/n");
-
-    // TODO - Implement cookie-based authentication before standing up websocket connections
-
     const url = new URL(req.url);
-    console.log(
-      "reached endpoint outside of routes; url request pathname: ",
-      url.pathname,
-    );
 
-    if (req.method === "OPTIONS") {
-      console.log("handling preflight");
-      return jsonResponse({});
-    }
+    switch (url.pathname) {
+      case "/ws": {
+        const token = url.searchParams.get("token");
+        console.log("endpoint has token:", token);
+        if (!token) {
+          return jsonResponse(
+            { error: "You must be logged in to open a connection" },
+            403,
+          );
+        }
 
-    if (url.pathname === "/ws") {
-      const clientId = crypto.randomUUID();
-      const wsData: WebSocketData = {
-        clientId,
-        connectedAt: new Date(),
-        rooms: new Set(),
-      };
-      const upgrade = server.upgrade(req, {
-        data: wsData,
-        headers: DEV_HEADERS,
-      });
+        req.headers.set("Authorization", `Bearer ${token}`);
+        const openConnection = withAuth(async (req) => {
+          console.log("opening connection");
 
-      if (upgrade) {
-        console.log("upgrade success");
-        return undefined;
+          const upgrade = server.upgrade(req);
+          if (upgrade) {
+            return jsonResponse({ message: "connected" });
+          }
+
+          return jsonResponse({ error: "failed to establish connection" });
+        });
+
+        return await openConnection(req);
       }
-
-      console.log("upgrade failed", server.pendingWebSockets);
+      default: {
+        return jsonResponse({ error: "Unable to locate resource" }, 404);
+      }
     }
-
-    return jsonResponse({ error: "Failed to upgrade to websocket" }, 500);
   },
   websocket: {
-    message(ws, rawMessage) {
-      let msg: ChatMessage;
-
-      try {
-        msg = JSON.parse(
-          typeof rawMessage === "string" ? rawMessage : rawMessage.toString(),
-        );
-      } catch {
-        ws.send(JSON.stringify({ type: "error", error: "Invalid JSON" }));
-        return;
-      }
-
-      console.log(`[${ws.data.clientId}] Received: ${msg}`);
-
-      connectionManager.broadcast(
-        JSON.stringify({
-          type: "message",
-          from: ws.data.clientId,
-          content: text,
-        }),
-        ws.data.clientId,
-      );
-    },
-    open: (ws) => {
-      console.log("[server] Opening connection...");
-      connectionManager.addClient(ws);
-
-      ws.send(
-        JSON.stringify({
-          type: "connected",
-          clientId: ws.data.clientId,
-          timestamp: Date.now(),
-        }),
-      );
-    },
-    close: (ws) => {
-      console.log("Client disconnected");
-      connectionManager.removeClient(ws.data.clientId);
-    },
+    message(ws, message) {}, // a message is received
+    open(ws) {
+      ws.send("connected");
+    }, // a socket is opened
+    close(ws, code, message) {}, // a socket is closed
+    drain(ws) {}, // the socket is ready to receive more data
   },
 });
 
