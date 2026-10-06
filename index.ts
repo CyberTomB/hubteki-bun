@@ -36,6 +36,7 @@ const server = Bun.serve({
       },
     },
     "/register": {
+      OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await register(req);
       },

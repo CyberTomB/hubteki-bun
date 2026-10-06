@@ -15,7 +15,6 @@ import {
   storeRefreshToken,
 } from "../utils/tokenStore";
 import type { UserData } from "../models/user";
-import { authMiddleware } from "../middleware/auth";
 
 export async function register(request: Request) {
   try {

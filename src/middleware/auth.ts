@@ -11,7 +11,6 @@ export async function authMiddleware(
 ): Promise<AuthenticatedRequest | Response> {
   const authHeader = request.headers.get("authorization");
 
-  console.log("[auth middleware]: ", authHeader);
   if (!authHeader) {
     return jsonResponse(
       {
@@ -36,7 +35,6 @@ export async function authMiddleware(
   }
 
   try {
-    console.log("attempting verification with jwt");
     const payload = await verifyAccessToken(token);
 
     console.log("received payload: ", payload);
@@ -45,6 +43,7 @@ export async function authMiddleware(
 
     return request;
   } catch (error) {
+    console.log("[auth][verify]", error);
     return jsonResponse({ error: "Invalid or expired token" }, 401);
   }
 }
