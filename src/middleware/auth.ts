@@ -6,12 +6,15 @@ export interface AuthenticatedRequest extends BunRequest {
   user?: TokenPayload;
 }
 
+// FIXME - The if statements should probably throw errors rather than handle the response
 export async function authMiddleware(
   request: AuthenticatedRequest,
 ): Promise<AuthenticatedRequest | Response> {
-  const authHeader = request.headers.get("authorization");
+  console.log("[auth middleware]: ", request.headers.get("Authorization"));
+  const authHeader = request.headers.get("Authorization");
 
   if (!authHeader) {
+    console.log("[auth mw]: no auth header");
     return jsonResponse(
       {
         error: "Authorization header missing",
@@ -20,8 +23,8 @@ export async function authMiddleware(
     );
   }
 
-  if (!authHeader.startsWith("Bearer ")) {
-    console.log("token is not bearer");
+  if (!authHeader.startsWith("Bearer")) {
+    console.log("token is not bearer: ", authHeader);
     return jsonResponse(
       { error: "Invalid authorzation format. User: Bearer <token>" },
       401,
@@ -31,6 +34,7 @@ export async function authMiddleware(
   const token = authHeader.substring(7);
 
   if (!token) {
+    console.log("[auth] incomplete token");
     return jsonResponse({ error: "Token missing" }, 401);
   }
 
