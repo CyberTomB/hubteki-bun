@@ -46,4 +46,14 @@ describe("authMiddleware", () => {
     expect(jsonResponse.mock.calls).toHaveLength(1);
     expect(jsonResponse.mock.calls[0]![1]).toBe(401);
   });
+
+  it.todo("verifies the access token and returns a request", () => {});
+
+  it.todo("returns a 401 if the verification fails", () => {});
+});
+
+describe("withAuth", () => {
+  it.todo("calls auth middleware", () => {});
+
+  it.todo("returns a promised response ", () => {});
 });
