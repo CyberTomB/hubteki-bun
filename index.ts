@@ -5,6 +5,7 @@ import { login, logout, refresh, register } from "./src/routes/login";
 import type { WebSocketData } from "./src/models/websocket";
 import { connectionManager } from "./src/controllers/connections";
 import type { ChatMessage } from "./src/models/chat";
+import { verifyRefreshToken } from "./src/utils/jwt";
 
 async function main() {
   // Connect to database
@@ -58,10 +59,21 @@ const server: Bun.Server<WebSocketData> = Bun.serve({
       },
     },
   },
-  fetch(req, server) {
-    console.log("reached endpoint outside of routes");
+  async fetch(req, server) {
+    const cookies = new Bun.CookieMap(req.headers.get("cookie")!);
+    const payload = await verifyRefreshToken(cookies.get("refreshToken")!);
+    const auth = req.headers.get("Authorization");
+
+    console.log("Received this payload: ", payload, "/n");
+    console.log("This was in authorization: ", auth, "/n");
+
+    // TODO - Implement cookie-based authentication before standing up websocket connections
+
     const url = new URL(req.url);
-    console.log("url request pathname: ", url.pathname);
+    console.log(
+      "reached endpoint outside of routes; url request pathname: ",
+      url.pathname,
+    );
 
     if (req.method === "OPTIONS") {
       console.log("handling preflight");
