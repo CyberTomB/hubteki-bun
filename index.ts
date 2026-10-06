@@ -40,7 +40,6 @@ const server = Bun.serve({
       },
     },
     "/refresh": {
-      OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await refresh(req);
       },
