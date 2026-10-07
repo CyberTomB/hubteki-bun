@@ -5,6 +5,7 @@
     "": {
       "name": "hubteki-bun",
       "dependencies": {
+        "@socket.io/bun-engine": "^0.1.2",
         "@types/socket.io": "^3.0.2",
         "bcrypt": "^6.0.0",
         "jose": "^6.2.12",
@@ -62,6 +63,8 @@
     "@keyv/serialize": ["@keyv/serialize@1.1.1", "", {}, "sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA=="],
 
     "@mongodb-js/saslprep": ["@mongodb-js/saslprep@1.5.5", "", { "dependencies": { "sparse-bitfield": "^3.0.3" } }, "sha512-0PV4mvjGd2Q2/viDvXuoSNzTjQngHvtuWUry1vqvcK4Q/CTeO1zEKMf9set01DMocJnogl/pyNAdvyk+Pe0kQA=="],
+
+    "@socket.io/bun-engine": ["@socket.io/bun-engine@0.1.2", "", { "peerDependencies": { "typescript": "*" } }, "sha512-rp0sDPtBBd/OS+6GXcL+QG2p3t54FCPQKqMQR2hMpL5FOyC4OAm97tTy9Haano+vnkRuwBmUAlhJeijw83/hmA=="],
 
     "@socket.io/component-emitter": ["@socket.io/component-emitter@3.1.2", "", {}, "sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA=="],
 

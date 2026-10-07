@@ -3,6 +3,8 @@ import { jsonResponse } from "./src/utils/jsonHelper";
 import BunRequest from "bun";
 import { login, logout, refresh, register } from "./src/routes/login";
 import { authMiddleware, withAuth } from "./src/middleware/auth";
+import { Server as Engine } from "@socket.io/bun-engine";
+import { Server } from "socket.io";
 
 async function main() {
   // Connect to database
@@ -24,6 +26,27 @@ async function shutdown() {
 
   process.exit();
 }
+
+const io = new Server({
+  cors: {
+    origin: ["http://localhost:5173"],
+    allowedHeaders: ["Authorization"],
+    credentials: true,
+  },
+});
+
+const engine = new Engine({
+  path: "/socket.io/",
+});
+
+io.bind(engine);
+
+io.on("connection", (socket) => {
+  console.log("[socket] Connected");
+  socket.on("disconnect", () => {
+    console.log("[socket] disconnected");
+  });
+});
 
 const server = Bun.serve({
   port: 3000,
@@ -54,47 +77,7 @@ const server = Bun.serve({
       },
     },
   },
-  async fetch(req, server) {
-    const url = new URL(req.url);
-
-    switch (url.pathname) {
-      case "/ws": {
-        const token = url.searchParams.get("token");
-        console.log("endpoint has token:", token);
-        if (!token) {
-          return jsonResponse(
-            { error: "You must be logged in to open a connection" },
-            403,
-          );
-        }
-
-        req.headers.set("Authorization", `Bearer ${token}`);
-        const openConnection = withAuth(async (req) => {
-          console.log("opening connection");
-
-          const upgrade = server.upgrade(req);
-          if (upgrade) {
-            return jsonResponse({ message: "connected" });
-          }
-
-          return jsonResponse({ error: "failed to establish connection" });
-        });
-
-        return await openConnection(req);
-      }
-      default: {
-        return jsonResponse({ error: "Unable to locate resource" }, 404);
-      }
-    }
-  },
-  websocket: {
-    message(ws, message) {}, // a message is received
-    open(ws) {
-      ws.send("connected");
-    }, // a socket is opened
-    close(ws, code, message) {}, // a socket is closed
-    drain(ws) {}, // the socket is ready to receive more data
-  },
+  ...engine.handler(),
 });
 
 await main();
