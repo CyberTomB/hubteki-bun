@@ -27,16 +27,16 @@ async function shutdown() {
   process.exit();
 }
 
-const io = new Server({
-  cors: {
-    origin: ["http://localhost:5173"],
-    allowedHeaders: ["Authorization"],
-    credentials: true,
-  },
-});
+const io = new Server();
 
 const engine = new Engine({
   path: "/socket.io/",
+  cors: {
+    origin: "http://localhost:5173",
+    allowedHeaders: ["Authorization"],
+    credentials: true,
+    methods: ["GET", "POST"],
+  },
 });
 
 io.bind(engine);
@@ -46,12 +46,15 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("[socket] disconnected");
   });
+
+  socket.on("chat message", (msg) => {
+    console.log("[socket]: ", msg);
+  });
 });
 
 const server = Bun.serve({
   port: 3000,
   routes: {
-    "/": (req) => jsonResponse({ message: "OK" }),
     "/login": {
       OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
