@@ -9,12 +9,16 @@ import {
 } from "../utils/jwt";
 import {
   getStoredToken,
-  revokeAllUserTokens,
   revokeToken,
   revokeTokenFamily,
-  storeRefreshToken,
 } from "../utils/tokenStore";
 import type { UserData } from "../models/user";
+
+// FIXME - A RESTful approach would specify the return types in line with the endpoint
+export interface AccessResponse {
+  user: UserData;
+  accessToken: string;
+}
 
 export async function register(request: Request) {
   try {
@@ -36,7 +40,13 @@ export async function register(request: Request) {
       password: password,
     });
 
-    return userController.userResponse(user);
+    return jsonResponse<AccessResponse>(
+      {
+        accessToken: "register",
+        user: userController.getUserData(user),
+      },
+      201,
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "User already exists") {
       return jsonResponse(
@@ -67,10 +77,10 @@ export async function login(request: BunRequest): Promise<Response> {
     }
 
     // SECTION - 3. Generate Token pair: access & refresh
-    const accessToken = await createAccessToken(user._id, user.email);
+    const accessToken = await createAccessToken(user.publicId, user.email);
 
     const { token: refreshToken, tokenId } = await createRefreshToken(
-      user._id,
+      user.publicId,
       user.email,
     );
 
@@ -81,7 +91,7 @@ export async function login(request: BunRequest): Promise<Response> {
     // SECTION - Save Refresh token to DB (extract later?)
     const token = new Token({
       tokenId: tokenId,
-      userId: user._id,
+      userId: user.publicId,
       familyId: familyId,
       deviceInfo: deviceInfo,
     });
@@ -97,7 +107,10 @@ export async function login(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return userController.accessResponse(user, accessToken);
+    return jsonResponse<AccessResponse>({
+      user: userController.getUserData(user),
+      accessToken,
+    });
   } catch (e) {
     console.log(e);
     return jsonResponse({ error: "Unable to login" }, 400);
@@ -117,6 +130,8 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     console.log("attempting verify token");
     const payload = await verifyRefreshToken(refreshToken);
+
+    console.log("payload: ", payload);
 
     const storedToken = await getStoredToken(payload.jti as string);
 
@@ -161,7 +176,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
     console.log("saving token: ", token.tokenId);
     await token.save();
 
-    const user = await userController.getUserById(payload.sub);
+    const user = await userController.getUserByPublicId(payload.sub);
 
     if (!user) {
       console.log("valid token, could not find user");
@@ -176,7 +191,10 @@ export async function refresh(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return userController.accessResponse(user, newAccessToken);
+    return jsonResponse<AccessResponse>({
+      user: userController.getUserData(user),
+      accessToken: newAccessToken,
+    });
   } catch (error) {
     console.log(error);
     return jsonResponse({ error: "Invalid refresh token" }, 401);

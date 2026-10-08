@@ -1,6 +1,3 @@
-import type { DefaultEventsMap } from "socket.io";
-import type { UserData } from "./user";
-
 interface SocketUser {
   userId: string;
   username: string;
@@ -24,4 +21,5 @@ export interface InterServerEvents {}
 export interface SocketData {
   sessionId: string;
   username: string;
+  userId: string;
 }

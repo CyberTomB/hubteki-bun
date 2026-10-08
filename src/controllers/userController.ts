@@ -1,13 +1,14 @@
 import { User, type DBUser, type UserData } from "../models/user";
 import { randomUUIDv7 } from "bun";
 import { jsonResponse } from "../utils/jsonHelper";
+import type { ObjectId } from "mongoose";
 
 class UserController {
   public async createUser(userInfo: {
     name: string;
     email: string;
     password: string;
-  }) {
+  }): Promise<DBUser> {
     console.log("checking for existing user");
     const { name, email, password } = userInfo;
     const existingUser = (await User.findOne({ email: email })) ?? null;
@@ -26,7 +27,14 @@ class UserController {
       passwordHash: hash,
       publicId: id,
     });
-    newUser.save();
+
+    try {
+      await newUser.save();
+    } catch (e) {
+      console.warn("Failed to save user: ", e);
+      // return jsonResponse({ error: "Unable to create user" }, 500);
+      throw new Error("Unable to create user");
+    }
 
     return newUser;
   }
@@ -48,28 +56,26 @@ class UserController {
     return isValid ? user : null;
   }
 
-  public getUserById(id: string) {
-    return User.findOne({ _id: id });
+  public getUserById(id: ObjectId) {
+    return User.findOne(id);
   }
 
-  public userResponse(data: DBUser): Response {
-    return jsonResponse<UserData>(
-      {
-        email: data.email,
-        id: data.publicId,
-        name: data.name,
-      },
-      201,
-    );
+  public async getUserByPublicId(id: string): Promise<DBUser> {
+    const user = await User.findOne<DBUser>({ publicId: id });
+
+    if (!user) {
+      throw new Error(`Could not find user with publicId ${id}`);
+    }
+
+    return user;
   }
 
-  public accessResponse(data: DBUser, token: string): Response {
-    return jsonResponse<UserData>({
-      email: data.email,
-      id: data.publicId,
-      name: data.name,
-      accessToken: token,
-    });
+  public getUserData(user: DBUser): UserData {
+    return {
+      email: user.email,
+      name: user.name,
+      id: user.publicId,
+    };
   }
 }
 

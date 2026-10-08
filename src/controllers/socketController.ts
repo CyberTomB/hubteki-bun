@@ -7,6 +7,7 @@ import type {
 } from "../models/socketEvents";
 import { Server } from "socket.io";
 import { sessionStore } from "../utils/sessionStore";
+import { userController } from "./userController";
 
 export const engine = new Engine({
   path: "/socket.io/",
@@ -27,7 +28,7 @@ const io = new Server<
 
 io.bind(engine);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   // FIXME - There's a more robust way of handling the user info; I think DB calls are okay here so long as use only gets called on io calls
   console.log(
     "\n [SOCKET] reaching out to database to get user details ",
@@ -46,16 +47,23 @@ io.use((socket, next) => {
     }
   }
 
-  const username = socket.handshake.auth.username;
+  const userId = socket.handshake.auth.userId;
 
-  if (!username) {
+  if (!userId) {
     return next(new Error("INVALID USERNAME"));
   }
 
-  socket.data.sessionId = crypto.randomUUID();
-  socket.data.username = username;
-  console.log("\n [SOCKET][USE] creating session: ", socket.data.sessionId);
-  next();
+  try {
+    const user = await userController.getUserByPublicId(userId);
+    socket.data.sessionId = crypto.randomUUID();
+    socket.data.username = user.name;
+    socket.data.userId = user.publicId;
+    console.log("\n [SOCKET][USE] creating session: ", socket.data.sessionId);
+    next();
+  } catch (e) {
+    console.log("[SOCKET] Could not find user ", userId);
+    next(new Error("Could not find the user based on that ID"));
+  }
 });
 
 io.on("connection", (socket) => {
