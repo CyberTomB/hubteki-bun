@@ -30,7 +30,7 @@ io.bind(engine);
 io.use((socket, next) => {
   // FIXME - There's a more robust way of handling the user info; I think DB calls are okay here so long as use only gets called on io calls
   console.log(
-    "[SOCKET] checking for user and session: ",
+    "\n [SOCKET] reaching out to database to get user details ",
     socket.handshake.auth,
   );
 

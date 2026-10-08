@@ -30,13 +30,13 @@ export async function register(request: Request) {
     }
 
     console.info("building user");
-    const res = await userController.createUser({
+    const user = await userController.createUser({
       email: email,
       name: name,
       password: password,
     });
 
-    return res;
+    return userController.userResponse(user);
   } catch (error) {
     if (error instanceof Error && error.message === "User already exists") {
       return jsonResponse(
@@ -97,15 +97,7 @@ export async function login(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return jsonResponse<{
-      message: string;
-      accessToken: string;
-      user: UserData;
-    }>({
-      message: "Login succesful",
-      accessToken: accessToken,
-      user: { name: user.name, email: user.email },
-    });
+    return userController.accessResponse(user, accessToken);
   } catch (e) {
     console.log(e);
     return jsonResponse({ error: "Unable to login" }, 400);
@@ -184,10 +176,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return jsonResponse<{ accessToken: string; user: UserData }>({
-      accessToken: newAccessToken,
-      user: { email: user.email, name: user.name },
-    });
+    return userController.accessResponse(user, newAccessToken);
   } catch (error) {
     console.log(error);
     return jsonResponse({ error: "Invalid refresh token" }, 401);

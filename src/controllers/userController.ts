@@ -1,5 +1,4 @@
-import { Model, Schema } from "mongoose";
-import { User, type DBUser } from "../models/user";
+import { User, type DBUser, type UserData } from "../models/user";
 import { randomUUIDv7 } from "bun";
 import { jsonResponse } from "../utils/jsonHelper";
 
@@ -19,17 +18,17 @@ class UserController {
     }
 
     const id = randomUUIDv7();
-    console.log("creating new user with ID: ", id);
+    console.log("creating new user with public ID: ", id);
     const hash = await Bun.password.hash(password);
     const newUser = new User({
-      _id: id,
       name: name,
       email: email,
       passwordHash: hash,
+      publicId: id,
     });
     newUser.save();
 
-    return jsonResponse({ message: "created user", id: id }, 201);
+    return newUser;
   }
 
   public async validateCredentials(
@@ -51,6 +50,26 @@ class UserController {
 
   public getUserById(id: string) {
     return User.findOne({ _id: id });
+  }
+
+  public userResponse(data: DBUser): Response {
+    return jsonResponse<UserData>(
+      {
+        email: data.email,
+        id: data.publicId,
+        name: data.name,
+      },
+      201,
+    );
+  }
+
+  public accessResponse(data: DBUser, token: string): Response {
+    return jsonResponse<UserData>({
+      email: data.email,
+      id: data.publicId,
+      name: data.name,
+      accessToken: token,
+    });
   }
 }
 
