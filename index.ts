@@ -5,6 +5,13 @@ import { login, logout, refresh, register } from "./src/routes/login";
 import { authMiddleware, withAuth } from "./src/middleware/auth";
 import { Server as Engine } from "@socket.io/bun-engine";
 import { Server } from "socket.io";
+import type {
+  ClientToServerEvents,
+  InterServerEvents,
+  ServerToClientEvents,
+  SocketData,
+} from "./src/models/socketEvents";
+import { sessionStore } from "./src/utils/sessionStore";
 
 async function main() {
   // Connect to database
@@ -27,7 +34,12 @@ async function shutdown() {
   process.exit();
 }
 
-const io = new Server();
+const io = new Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
+>();
 
 const engine = new Engine({
   path: "/socket.io/",
@@ -41,14 +53,58 @@ const engine = new Engine({
 
 io.bind(engine);
 
+io.use((socket, next) => {
+  console.log("[SOCKET] checking for user: ", socket.handshake.auth);
+
+  const username = socket.handshake.auth.username;
+
+  if (!username) {
+    return next(new Error("INVALID USERNAME"));
+  }
+
+  const sessionId = socket.handshake.auth.sessionId;
+  if (sessionId) {
+    const session = sessionStore.findSession(sessionId);
+    if (session) {
+      socket.data.sessionId = sessionId;
+      // socket.userId = session.userId;
+      socket.data.username = session.username;
+      return next();
+    }
+  }
+
+  socket.data.sessionId = crypto.randomUUID();
+  socket.data.username = username;
+  next();
+});
+
 io.on("connection", (socket) => {
-  console.log("[socket] Connected");
-  socket.on("disconnect", () => {
-    console.log("[socket] disconnected");
+  const users = [];
+  for (let [id, socket] of io.of("/").sockets) {
+    users.push({
+      userId: id,
+      username: socket.data.username,
+    });
+  }
+
+  socket.emit("session", {
+    sessionId: socket.data.sessionId,
+    username: socket.data.username,
   });
 
-  socket.on("chat message", (msg) => {
-    console.log("[socket]: ", msg);
+  socket.emit("users", users);
+
+  socket.broadcast.emit("userConnected", {
+    userId: socket.id,
+    username: socket.data.username,
+  });
+
+  socket.on("disconnect", () => {
+    console.log("[socket] disconnected");
+    socket.emit("userDisconnected", {
+      userId: socket.id,
+      username: socket.data.username,
+    });
   });
 });
 
