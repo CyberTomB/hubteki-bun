@@ -12,9 +12,12 @@ export interface ServerToClientEvents {
   userConnected: (user: SocketUser) => void;
   userDisconnected: (user: SocketUser) => void;
   session: (data: { sessionId: string; username: string }) => void;
+  chat: (data: { content: any; from: string; to: string }) => void;
 }
 
-export interface ClientToServerEvents {}
+export interface ClientToServerEvents {
+  chat: (content: any, to: string) => void;
+}
 
 export interface InterServerEvents {}
 
