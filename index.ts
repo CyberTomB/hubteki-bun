@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { jsonResponse } from "./src/utils/jsonHelper";
 import { login, logout, refresh, register } from "./src/routes/login";
 import { engine } from "./src/controllers/socketController";
+import { roomController } from "./src/controllers/roomController";
+import { withAuth } from "./src/middleware/auth";
 
 async function main() {
   // Connect to database
@@ -49,6 +51,21 @@ const server = Bun.serve({
       OPTIONS: () => jsonResponse({}, 204),
       POST: async (req) => {
         return await logout(req);
+      },
+    },
+    "/room": {
+      OPTIONS: () => jsonResponse({}, 204),
+      POST: async (req) => {
+        try {
+          return await roomController.createRoom(req);
+        } catch (e) {
+          return jsonResponse(
+            {
+              error: "Could not create room",
+            },
+            500,
+          );
+        }
       },
     },
   },

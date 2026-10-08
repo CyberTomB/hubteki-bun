@@ -76,20 +76,20 @@ io.on("connection", (socket) => {
     });
   }
 
-  socket.join(socket.data.username);
+  socket.join(socket.data.roomId);
 
   socket.on("chat", ({ content, to }) => {
     console.log("[SOCKET] chat received: ", content, `for: ${to}`);
-    socket.to(to).to(socket.data.username).emit("chat", {
+    socket.to(to).to(socket.data.roomId).emit("chat", {
       content,
-      from: socket.data.username,
+      from: socket.data.userId,
       to,
     });
   });
 
   socket.emit("session", {
     sessionId: socket.data.sessionId,
-    username: socket.data.username,
+    userId: socket.data.userId,
   });
 
   socket.emit("users", users);

@@ -8,7 +8,7 @@ export interface ServerToClientEvents {
   users: (users: Array<SocketUser>) => void;
   userConnected: (user: SocketUser) => void;
   userDisconnected: (user: SocketUser) => void;
-  session: (data: { sessionId: string; username: string }) => void;
+  session: (data: { sessionId: string; userId: string }) => void;
   chat: (data: { content: any; from: string; to: string }) => void;
 }
 
@@ -22,4 +22,5 @@ export interface SocketData {
   sessionId: string;
   username: string;
   userId: string;
+  roomId: string;
 }
