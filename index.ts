@@ -54,18 +54,16 @@ const engine = new Engine({
 io.bind(engine);
 
 io.use((socket, next) => {
-  console.log("[SOCKET] checking for user: ", socket.handshake.auth);
-
-  const username = socket.handshake.auth.username;
-
-  if (!username) {
-    return next(new Error("INVALID USERNAME"));
-  }
+  console.log(
+    "[SOCKET] checking for user and session: ",
+    socket.handshake.auth,
+  );
 
   const sessionId = socket.handshake.auth.sessionId;
   if (sessionId) {
     const session = sessionStore.findSession(sessionId);
     if (session) {
+      console.log("found session");
       socket.data.sessionId = sessionId;
       // socket.userId = session.userId;
       socket.data.username = session.username;
@@ -73,8 +71,15 @@ io.use((socket, next) => {
     }
   }
 
+  const username = socket.handshake.auth.username;
+
+  if (!username) {
+    return next(new Error("INVALID USERNAME"));
+  }
+
   socket.data.sessionId = crypto.randomUUID();
   socket.data.username = username;
+  console.log("\n [SOCKET][USE] creating session: ", socket.data.sessionId);
   next();
 });
 
@@ -84,6 +89,7 @@ io.on("connection", (socket) => {
     users.push({
       userId: id,
       username: socket.data.username,
+      sessionId: socket.data.sessionId,
     });
   }
 
@@ -95,13 +101,20 @@ io.on("connection", (socket) => {
   socket.emit("users", users);
 
   socket.broadcast.emit("userConnected", {
+    sessionId: socket.data.sessionId,
     userId: socket.id,
     username: socket.data.username,
   });
 
-  socket.on("disconnect", () => {
-    console.log("[socket] disconnected");
-    socket.emit("userDisconnected", {
+  socket.on("disconnect", async () => {
+    console.log("[SOCKET][DISCONNECT] disconnected");
+    socket.broadcast.emit("userDisconnected", {
+      userId: socket.id,
+      username: socket.data.username,
+      sessionId: socket.data.sessionId,
+    });
+
+    sessionStore.saveSession(socket.data.sessionId, {
       userId: socket.id,
       username: socket.data.username,
     });

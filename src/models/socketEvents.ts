@@ -4,6 +4,7 @@ import type { UserData } from "./user";
 interface SocketUser {
   userId: string;
   username: string;
+  sessionId?: string;
 }
 
 export interface ServerToClientEvents {
