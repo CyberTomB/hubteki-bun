@@ -104,7 +104,7 @@ export async function login(request: BunRequest): Promise<Response> {
     }>({
       message: "Login succesful",
       accessToken: accessToken,
-      user: { name: user.name, email: user.email },
+      user: { id: user._id, name: user.name, email: user.email },
     });
   } catch (e) {
     console.log(e);
@@ -186,7 +186,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     return jsonResponse<{ accessToken: string; user: UserData }>({
       accessToken: newAccessToken,
-      user: { email: user.email, name: user.name },
+      user: { id: user._id, email: user.email, name: user.name },
     });
   } catch (error) {
     console.log(error);

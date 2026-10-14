@@ -29,7 +29,7 @@ class UserController {
     });
     newUser.save();
 
-    return jsonResponse({ message: "created user", id: id }, 201);
+    return newUser;
   }
 
   public async validateCredentials(

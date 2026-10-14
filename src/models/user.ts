@@ -10,6 +10,7 @@ export interface DBUser {
 export interface UserData {
   name: string;
   email: string;
+  id: string;
 }
 
 const userSchema = new Schema({

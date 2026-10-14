@@ -17,6 +17,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   chat: (content: any, to: string) => void;
+  roomCreate: (data: { user: UserData }) => string;
 }
 
 export interface InterServerEvents {}
