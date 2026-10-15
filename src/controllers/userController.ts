@@ -8,7 +8,7 @@ class UserController {
     name: string;
     email: string;
     password: string;
-  }) {
+  }): Promise<DBUser> {
     console.log("checking for existing user");
     const { name, email, password } = userInfo;
     const existingUser = (await User.findOne({ email: email })) ?? null;
@@ -29,7 +29,7 @@ class UserController {
     });
     newUser.save();
 
-    return jsonResponse({ message: "created user", id: id }, 201);
+    return newUser;
   }
 
   public async validateCredentials(

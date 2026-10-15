@@ -15,10 +15,13 @@ import {
   storeRefreshToken,
 } from "../utils/tokenStore";
 import type { UserData } from "../models/user";
+import { DataResponse, ErrorResponse } from "../models/response";
 
-export async function register(request: Request) {
+export async function register(
+  request: Request,
+): Promise<DataResponse<UserData>> {
   try {
-    console.log("trying to register: ", request);
+    console.log("[/register] trying to register: ", request);
     const { email, name, password } = (await request.json()) as {
       email: string;
       name: string;
@@ -26,30 +29,31 @@ export async function register(request: Request) {
     };
 
     if (!email || !password) {
-      return jsonResponse({ error: "how tf did you get to this place?" }, 400);
+      return new ErrorResponse("/register: no email or password provied", 400);
     }
 
-    console.info("building user");
+    console.log("[/register][info]: creating new user");
     const res = await userController.createUser({
       email: email,
       name: name,
       password: password,
     });
 
-    return res;
+    return new DataResponse<UserData>({
+      id: res._id,
+      email: res.email,
+      name: res.name,
+    });
   } catch (error) {
+    console.error("[/register]: ", error);
     if (error instanceof Error && error.message === "User already exists") {
-      return jsonResponse(
-        { error: "There is already an account registered to this email" },
+      return new ErrorResponse(
+        "There is already an account registered to this email",
         409,
       );
     }
-    console.error(error);
 
-    return jsonResponse(
-      { error: "Something failed when trying to register" },
-      500,
-    );
+    return new ErrorResponse("Unable to register user");
   }
 }
 
@@ -104,7 +108,7 @@ export async function login(request: BunRequest): Promise<Response> {
     }>({
       message: "Login succesful",
       accessToken: accessToken,
-      user: { name: user.name, email: user.email },
+      user: { name: user.name, email: user.email, id: user._id },
     });
   } catch (e) {
     console.log(e);
@@ -186,7 +190,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     return jsonResponse<{ accessToken: string; user: UserData }>({
       accessToken: newAccessToken,
-      user: { email: user.email, name: user.name },
+      user: { email: user.email, name: user.name, id: user._id },
     });
   } catch (error) {
     console.log(error);
