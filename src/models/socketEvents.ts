@@ -11,7 +11,7 @@ export interface ServerToClientEvents {
   users: (users: Array<SocketUser>) => void;
   userConnected: (user: SocketUser) => void;
   userDisconnected: (user: SocketUser) => void;
-  session: (data: { sessionId: string; username: string }) => void;
+  session: (data: { sessionId: string }) => void;
   chat: (data: { content: any; from: string; to: string }) => void;
 }
 

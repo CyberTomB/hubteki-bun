@@ -29,22 +29,25 @@ const io = new Server<
 
 io.bind(engine);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   // FIXME - There's a more robust way of handling the user info; I think DB calls are okay here so long as use only gets called on io calls
   console.log(
-    socket.handshake,
     "[SOCKET] checking for user and session: ",
     socket.handshake.auth,
   );
 
-  const sessionId = socket.handshake.auth.sessionId;
+  const { userId, sessionId } = socket.handshake.auth as {
+    userId: string;
+    sessionId: string;
+  };
+
   if (sessionId) {
+    console.log("[SOCKET][USE] finding session...");
     const session = sessionStore.findSession(sessionId);
+    console.log("[SOCKET][USE] found session: ", session);
     if (session) {
       console.log("found session");
       socket.data.sessionId = sessionId;
-      // socket.userId = session.userId;
-      socket.data.username = session.username;
       return next();
     }
   }
@@ -55,13 +58,16 @@ io.use((socket, next) => {
     return next(new Error("INVALID USERNAME"));
   }
 
-  socket.data.sessionId = crypto.randomUUID();
-  socket.data.username = username;
-  console.log("\n [SOCKET][USE] creating session: ", socket.data.sessionId);
+  const newSessionId = crypto.randomUUID();
+  socket.data.sessionId = newSessionId;
+  console.log("[SOCKET][USE] creating session: ", socket.data.sessionId);
+  sessionStore.saveSession(newSessionId, { userId: userId, username: "Test" });
   next();
 });
 
 io.on("connection", (socket) => {
+  socket.emit("session", { sessionId: socket.data.sessionId });
+
   socket.on("roomCreate", ({ user }: { user: UserData }) => {
     const success = roomController.create({ user });
     console.log("[SOCKET] " + success);
