@@ -33,17 +33,13 @@ export async function register(
     }
 
     console.log("[/register][info]: creating new user");
-    const res = await userController.createUser({
+
+    const user = await userController.createUser({
       email: email,
       name: name,
       password: password,
     });
-
-    return new DataResponse<UserData>({
-      id: res._id,
-      email: res.email,
-      name: res.name,
-    });
+    return new DataResponse<UserData>(user);
   } catch (error) {
     console.error("[/register]: ", error);
     if (error instanceof Error && error.message === "User already exists") {
@@ -71,10 +67,10 @@ export async function login(request: BunRequest): Promise<Response> {
     }
 
     // SECTION - 3. Generate Token pair: access & refresh
-    const accessToken = await createAccessToken(user._id, user.email);
+    const accessToken = await createAccessToken(user.id, user.email);
 
     const { token: refreshToken, tokenId } = await createRefreshToken(
-      user._id,
+      user.id,
       user.email,
     );
 
@@ -85,7 +81,7 @@ export async function login(request: BunRequest): Promise<Response> {
     // SECTION - Save Refresh token to DB (extract later?)
     const token = new Token({
       tokenId: tokenId,
-      userId: user._id,
+      userId: user.id,
       familyId: familyId,
       deviceInfo: deviceInfo,
     });
@@ -108,7 +104,7 @@ export async function login(request: BunRequest): Promise<Response> {
     }>({
       message: "Login succesful",
       accessToken: accessToken,
-      user: { name: user.name, email: user.email, id: user._id },
+      user: { name: user.name, email: user.email, id: user.id },
     });
   } catch (e) {
     console.log(e);
@@ -152,10 +148,9 @@ export async function refresh(request: BunRequest): Promise<Response> {
       );
     }
 
-    // FIXME - this function needs to use the DB
     await revokeToken(payload.jti as string);
 
-    // FIXME - Replace with a "rotate token" function, probably, set tokens on req object instead
+    // FIXME - Replace with a "rotate token" function, probably, set tokens on req object instead?
     const newAccessToken = await createAccessToken(
       payload.sub as string,
       payload.email as string,
