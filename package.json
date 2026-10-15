@@ -22,8 +22,11 @@
     "typescript": "^7"
   },
   "dependencies": {
+    "@socket.io/bun-engine": "^0.1.2",
+    "@types/socket.io": "^3.0.2",
     "bcrypt": "^6.0.0",
     "jose": "^6.2.12",
-    "mongoose": "^9.10.3"
+    "mongoose": "^9.10.3",
+    "socket.io": "^4.8.4"
   }
 }
