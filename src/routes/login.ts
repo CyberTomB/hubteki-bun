@@ -1,7 +1,6 @@
 import type { BunRequest } from "bun";
 import { userController } from "../controllers/userController";
 import { Token } from "../models/token";
-import { jsonResponse } from "../utils/jsonHelper";
 import {
   createAccessToken,
   createRefreshToken,
@@ -17,9 +16,14 @@ import {
 import type { UserData } from "../models/user";
 import { DataResponse, ErrorResponse } from "../models/response";
 
+export interface AccessData {
+  accessToken: string;
+  user: UserData;
+}
+
 export async function register(
-  request: Request,
-): Promise<DataResponse<UserData>> {
+  request: BunRequest,
+): Promise<DataResponse<AccessData>> {
   try {
     console.log("[/register] trying to register: ", request);
     const { email, name, password } = (await request.json()) as {
@@ -38,8 +42,38 @@ export async function register(
       email: email,
       name: name,
       password: password,
+    }); // SECTION - 3. Generate Token pair: access & refresh
+    const accessToken = await createAccessToken(user.id, user.email);
+
+    const { token: refreshToken, tokenId } = await createRefreshToken(
+      user.id,
+      user.email,
+    );
+
+    const familyId = crypto.randomUUID();
+
+    const deviceInfo = request.headers.get("User-Agent") || "Unknown";
+
+    // SECTION - Save Refresh token to DB (extract later?)
+    const token = new Token({
+      tokenId: tokenId,
+      userId: user.id,
+      familyId: familyId,
+      deviceInfo: deviceInfo,
     });
-    return new DataResponse<UserData>(user);
+
+    console.log("saving token in login", token.tokenId);
+    await token.save();
+
+    // SECTION - 4. Return tokens as cookies
+    request.cookies.set("refreshToken", refreshToken, {
+      maxAge: 60 * 60 * 24 * 7,
+      httpOnly: true,
+      secure: true,
+      path: "/refresh",
+    });
+
+    return new DataResponse<AccessData>({ accessToken, user });
   } catch (error) {
     console.error("[/register]: ", error);
     if (error instanceof Error && error.message === "User already exists") {
@@ -53,17 +87,19 @@ export async function register(
   }
 }
 
-export async function login(request: BunRequest): Promise<Response> {
+export async function login(
+  request: BunRequest,
+): Promise<DataResponse<AccessData> | ErrorResponse> {
   try {
     console.log("login");
-    // SECTION - 2. Receive and validation Credentials
+    // SECTION - 2. Receive and validate Credentials
     const body = (await request.json()) as { email: string; password: string };
     const { email, password } = body;
 
     const user = await userController.validateCredentials(email, password);
 
     if (!user) {
-      return jsonResponse({ error: "Invalid password or email" }, 401);
+      return new ErrorResponse("Invalid password or email", 401);
     }
 
     // SECTION - 3. Generate Token pair: access & refresh
@@ -97,18 +133,13 @@ export async function login(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return jsonResponse<{
-      message: string;
-      accessToken: string;
-      user: UserData;
-    }>({
-      message: "Login succesful",
+    return new DataResponse({
       accessToken: accessToken,
       user: { name: user.name, email: user.email, id: user.id },
     });
   } catch (e) {
     console.log(e);
-    return jsonResponse({ error: "Unable to login" }, 400);
+    return new ErrorResponse("Unable to login", 400);
   }
 }
 
@@ -120,7 +151,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     if (!refreshToken) {
       console.info("no refresh token");
-      return jsonResponse({ error: "Refresh token required" }, 400);
+      return new ErrorResponse("Refresh token required", 400);
     }
 
     console.log("attempting verify token");
@@ -130,7 +161,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     if (!storedToken) {
       console.info("could not find stored token");
-      return jsonResponse({ error: "Refresh token not found" }, 401);
+      return new ErrorResponse("Refresh token not found", 401);
     }
 
     console.log(
@@ -142,8 +173,8 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     if (storedToken.revoked) {
       revokeTokenFamily(storedToken.familyId);
-      return jsonResponse(
-        { error: "Token reuse detected. Please login again." },
+      return new ErrorResponse(
+        "Token reuse detected, please login again.",
         401,
       );
     }
@@ -172,7 +203,7 @@ export async function refresh(request: BunRequest): Promise<Response> {
 
     if (!user) {
       console.log("valid token, could not find user");
-      return jsonResponse({ error: "Something went wrong" }, 500);
+      return new ErrorResponse("Something went wrong");
     }
 
     console.log("refreshed, user is: ", user.name, "\n");
@@ -183,31 +214,31 @@ export async function refresh(request: BunRequest): Promise<Response> {
       path: "/refresh",
     });
 
-    return jsonResponse<{ accessToken: string; user: UserData }>({
-      accessToken: newAccessToken,
-      user: { email: user.email, name: user.name, id: user._id },
-    });
+    return new DataResponse<AccessData>({ accessToken: newAccessToken, user });
   } catch (error) {
     console.log(error);
-    return jsonResponse({ error: "Invalid refresh token" }, 401);
+    return new ErrorResponse("Invalid refresh token", 401);
   }
 }
 
-export async function logout(request: BunRequest): Promise<Response> {
+export async function logout(
+  request: BunRequest,
+): Promise<DataResponse<{ message: string }> | ErrorResponse> {
   try {
     const refreshToken = request.cookies.get("refreshToken");
 
     if (!refreshToken) {
       console.info("no refresh token");
-      return jsonResponse({ error: "Refresh token required" }, 400);
+      return new ErrorResponse("Refresh token required", 400);
     }
 
     const payload = await verifyRefreshToken(refreshToken);
     console.log("[logout] revoking token: ", payload.jti);
     await revokeToken(payload.jti as string);
 
-    return jsonResponse({ message: "Logged out successfully" });
+    return new DataResponse({ message: "Log out successful" });
   } catch (error) {
-    return jsonResponse({ message: "Logged out" });
+    console.log("[/logout] Something went wrong: ", error);
+    return new DataResponse({ message: "Logged out" });
   }
 }
