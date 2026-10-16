@@ -52,12 +52,6 @@ const server = Bun.serve({
         return await logout(req);
       },
     },
-    "/test": {
-      OPTIONS: () => new CorsResponse(),
-      POST: withAuth(async (req) => {
-        return new DataResponse("this endpoint was validated using middleware");
-      }),
-    },
   },
   ...engine.handler(),
 });
