@@ -1,54 +1,37 @@
 import type { BunRequest } from "bun";
-import { jsonResponse } from "../utils/jsonHelper";
-import { verifyAccessToken, type TokenPayload } from "../utils/jwt";
+import { sessionController } from "../controllers/sessionController";
+import { ErrorResponse } from "../models/response";
 
 export interface AuthenticatedRequest extends BunRequest {
-  user?: TokenPayload;
+  userId?: string;
 }
 
-// FIXME - The if statements should probably throw errors rather than handle the response
 export async function authMiddleware(
   request: AuthenticatedRequest,
 ): Promise<AuthenticatedRequest | Response> {
-  console.log("[auth middleware]: ", request.headers.get("Authorization"));
-  const authHeader = request.headers.get("Authorization");
-
-  if (!authHeader) {
-    console.log("[auth mw]: no auth header");
-    return jsonResponse(
-      {
-        error: "Authorization header missing",
-      },
-      401,
-    );
-  }
-
-  if (!authHeader.startsWith("Bearer")) {
-    console.log("token is not bearer: ", authHeader);
-    return jsonResponse(
-      { error: "Invalid authorzation format. User: Bearer <token>" },
-      401,
-    );
-  }
-
-  const token = authHeader.substring(7);
+  const logger = (msg: string) => {
+    console.log(`[authmw] ${msg}`);
+  };
+  const isProduction = process.env.NODE_ENV === "production";
+  const token = request.cookies.get(
+    isProduction ? "__Host-session" : "session",
+  );
 
   if (!token) {
-    console.log("[auth] incomplete token");
-    return jsonResponse({ error: "Token missing" }, 401);
+    console.log("no token");
+    throw new Error("no session token found");
   }
 
   try {
-    const payload = await verifyAccessToken(token);
+    logger("validating session");
+    const session = await sessionController.getAuthenticatedSession(token);
 
-    console.log("received payload: ", payload);
-
-    request.user = payload;
+    request.userId = session.userId;
 
     return request;
   } catch (error) {
-    console.log("[auth][verify]", error);
-    return jsonResponse({ error: "Invalid or expired token" }, 401);
+    logger("couldn't find session" + error);
+    return new ErrorResponse("unable to verify user session", 401);
   }
 }
 
