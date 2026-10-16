@@ -7,12 +7,17 @@ import type {
 } from "../models/socketEvents";
 import { Server } from "socket.io";
 import { sessionController } from "./sessionController";
+import { CookieMap } from "bun";
+import { userController } from "./userController";
+
+const logger = (msg: string) => {
+  console.log(`[socket] ${msg}`);
+};
 
 export const engine = new Engine({
   path: "/socket.io/",
   cors: {
     origin: "http://localhost:5173",
-    allowedHeaders: ["Authorization"],
     credentials: true,
     methods: ["GET", "POST"],
   },
@@ -28,32 +33,28 @@ const io = new Server<
 io.bind(engine);
 
 io.use(async (socket, next) => {
-  // FIXME - There's a more robust way of handling the user info; I think DB calls are okay here so long as use only gets called on io calls
-  console.log(
-    "[SOCKET] checking for user and session: ",
-    socket.handshake.auth,
-  );
+  const cookies = new CookieMap(socket.request.headers.cookie ?? "");
 
-  const sessionId = socket.handshake.auth.sessionId;
-  if (sessionId) {
-    const session = await sessionController.getAuthenticatedSession(sessionId);
+  const isProduction = process.env.NODE_ENV === "production";
+  const token = cookies.get(isProduction ? "__Host-session" : "session");
+
+  logger("checking for session token");
+  if (token) {
+    const session = await sessionController.getAuthenticatedSession(token);
     if (session) {
-      console.log("found session");
-      socket.data.username = "BOB";
+      logger("found session");
+      const user = await userController.getUserById(session.userId);
+      if (!user) {
+        logger("failed to find user");
+        throw new Error("Unable to find user");
+      }
+
+      socket.data.username = user.name;
       return next();
     }
   }
 
-  const username = socket.handshake.auth.username;
-
-  if (!username) {
-    return next(new Error("INVALID USERNAME"));
-  }
-
-  socket.data.sessionId = crypto.randomUUID();
-  socket.data.username = username;
-  console.log("\n [SOCKET][USE] creating session: ", socket.data.sessionId);
-  next();
+  throw new Error("Invalid session?");
 });
 
 io.on("connection", (socket) => {
@@ -69,7 +70,7 @@ io.on("connection", (socket) => {
   socket.join(socket.data.username);
 
   socket.on("chat", ({ content, to }) => {
-    console.log("[SOCKET] chat received: ", content, `for: ${to}`);
+    logger(`[SOCKET] chat received: , ${content}, for: ${to}`);
     socket.to(to).to(socket.data.username).emit("chat", {
       content,
       from: socket.data.username,
@@ -91,7 +92,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", async () => {
-    console.log("[SOCKET][DISCONNECT] disconnected");
+    logger("disconnect");
     socket.broadcast.emit("userDisconnected", {
       userId: socket.id,
       username: socket.data.username,
