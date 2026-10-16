@@ -80,7 +80,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", async () => {
-    logger("disconnect");
+    logger("disconnect " + socket.data.connectionId);
+    lobby.delete(socket.data.connectionId);
     socket.broadcast.emit("userDisconnected", {
       connectionId: socket.data.connectionId,
       username: socket.data.username,
