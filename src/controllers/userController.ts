@@ -1,12 +1,12 @@
 import { randomUUIDv7 } from "bun";
-import { User, type UserData } from "../models/user";
+import { User, type IUser, type UserData } from "../models/user";
 
 class UserController {
   public async createUser(userInfo: {
     name: string;
     email: string;
     password: string;
-  }): Promise<UserData> {
+  }): Promise<IUser> {
     console.log("checking for existing user");
     const { name, email, password } = userInfo;
     const existingUser = (await User.findOne({ email: email })) ?? null;
@@ -42,10 +42,10 @@ class UserController {
     return newUser;
   }
 
-  public async validateCredentials(
+  public async getAuthenticatedUser(
     email: string,
     password: string,
-  ): Promise<UserData> {
+  ): Promise<IUser> {
     console.log("lookup user: ", email);
     const user = await User.findOne({ email: email });
 
@@ -63,8 +63,8 @@ class UserController {
     return user;
   }
 
-  public getUserById(id: string) {
-    return User.findOne({ _id: id });
+  public async getUserById(id: string) {
+    return await User.findOne({ _id: id });
   }
 }
 

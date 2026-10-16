@@ -1,31 +1,14 @@
 import type { BunRequest } from "bun";
 import { userController } from "../controllers/userController";
-import { Token } from "../models/token";
-import {
-  createAccessToken,
-  createRefreshToken,
-  verifyRefreshToken,
-} from "../utils/jwt";
-import {
-  getStoredToken,
-  revokeAllUserTokens,
-  revokeToken,
-  revokeTokenFamily,
-  storeRefreshToken,
-} from "../utils/tokenStore";
-import type { UserData } from "../models/user";
 import { DataResponse, ErrorResponse } from "../models/response";
-
-export interface AccessData {
-  accessToken: string;
-  user: UserData;
-}
+import { sessionController } from "../controllers/sessionController";
+import type { UserData } from "../models/user";
 
 export async function register(
   request: BunRequest,
-): Promise<DataResponse<AccessData>> {
+): Promise<DataResponse<UserData>> {
   try {
-    console.log("[/register] trying to register: ", request);
+    console.log("[register] trying to register: ", request);
     const { email, name, password } = (await request.json()) as {
       email: string;
       name: string;
@@ -33,47 +16,21 @@ export async function register(
     };
 
     if (!email || !password) {
-      return new ErrorResponse("/register: no email or password provied", 400);
+      return new ErrorResponse("[register]: no email or password provied", 400);
     }
 
-    console.log("[/register][info]: creating new user");
+    console.log("[register][info]: creating new user");
 
     const user = await userController.createUser({
       email: email,
       name: name,
       password: password,
-    }); // SECTION - 3. Generate Token pair: access & refresh
-    const accessToken = await createAccessToken(user.id, user.email);
-
-    const { token: refreshToken, tokenId } = await createRefreshToken(
-      user.id,
-      user.email,
-    );
-
-    const familyId = crypto.randomUUID();
-
-    const deviceInfo = request.headers.get("User-Agent") || "Unknown";
-
-    // SECTION - Save Refresh token to DB (extract later?)
-    const token = new Token({
-      tokenId: tokenId,
-      userId: user.id,
-      familyId: familyId,
-      deviceInfo: deviceInfo,
     });
 
-    console.log("saving token in login", token.tokenId);
-    await token.save();
-
-    // SECTION - 4. Return tokens as cookies
-    request.cookies.set("refreshToken", refreshToken, {
-      maxAge: 60 * 60 * 24 * 7,
-      httpOnly: true,
-      secure: true,
-      path: "/refresh",
+    return new DataResponse<UserData>({
+      name: user.name,
+      email: user.email,
     });
-
-    return new DataResponse<AccessData>({ accessToken, user });
   } catch (error) {
     console.error("[/register]: ", error);
     if (error instanceof Error && error.message === "User already exists") {
@@ -89,54 +46,30 @@ export async function register(
 
 export async function login(
   request: BunRequest,
-): Promise<DataResponse<AccessData> | ErrorResponse> {
+): Promise<DataResponse<UserData> | ErrorResponse> {
   try {
     console.log("login");
-    // SECTION - 2. Receive and validate Credentials
+    const isProduction = process.env.NODE_ENV === "production";
     const body = (await request.json()) as { email: string; password: string };
     const { email, password } = body;
 
-    const user = await userController.validateCredentials(email, password);
+    const user = await userController.getAuthenticatedUser(email, password);
 
     if (!user) {
       return new ErrorResponse("Invalid password or email", 401);
     }
 
-    // SECTION - 3. Generate Token pair: access & refresh
-    const accessToken = await createAccessToken(user.id, user.email);
+    const token = await sessionController.createSession(user._id);
 
-    const { token: refreshToken, tokenId } = await createRefreshToken(
-      user.id,
-      user.email,
-    );
-
-    const familyId = crypto.randomUUID();
-
-    const deviceInfo = request.headers.get("User-Agent") || "Unknown";
-
-    // SECTION - Save Refresh token to DB (extract later?)
-    const token = new Token({
-      tokenId: tokenId,
-      userId: user.id,
-      familyId: familyId,
-      deviceInfo: deviceInfo,
-    });
-
-    console.log("saving token in login", token.tokenId);
-    await token.save();
-
-    // SECTION - 4. Return tokens as cookies
-    request.cookies.set("refreshToken", refreshToken, {
+    request.cookies.set(isProduction ? "__Host-session" : "session", token, {
       maxAge: 60 * 60 * 24 * 7,
       httpOnly: true,
       secure: true,
-      path: "/refresh",
+      sameSite: "lax",
+      path: "/",
     });
 
-    return new DataResponse({
-      accessToken: accessToken,
-      user: { name: user.name, email: user.email, id: user.id },
-    });
+    return new DataResponse({ name: user.name, email: user.email });
   } catch (e) {
     console.log(e);
     return new ErrorResponse("Unable to login", 400);
@@ -147,74 +80,41 @@ export async function refresh(request: BunRequest): Promise<Response> {
   console.log("refresh function fired");
   try {
     console.log("attempting to get token from cookies");
-    const refreshToken = request.cookies.get("refreshToken");
+    const isProduction = process.env.NODE_ENV === "production";
+    const token = request.cookies.get(
+      isProduction ? "__Host-session" : "session",
+    );
 
-    if (!refreshToken) {
-      console.info("no refresh token");
+    if (!token) {
+      console.log("no refresh token");
       return new ErrorResponse("Refresh token required", 400);
     }
 
-    console.log("attempting verify token");
-    const payload = await verifyRefreshToken(refreshToken);
+    const session = await sessionController.getAuthenticatedSession(token);
 
-    const storedToken = await getStoredToken(payload.jti as string);
-
-    if (!storedToken) {
-      console.info("could not find stored token");
-      return new ErrorResponse("Refresh token not found", 401);
-    }
-
-    console.log(
-      "[login] found the token with id: ",
-      storedToken.tokenId,
-      " revoked status is: ",
-      storedToken.revoked,
-    );
-
-    if (storedToken.revoked) {
-      revokeTokenFamily(storedToken.familyId);
-      return new ErrorResponse(
-        "Token reuse detected, please login again.",
-        401,
-      );
-    }
-
-    await revokeToken(payload.jti as string);
-
-    // FIXME - Replace with a "rotate token" function, probably, set tokens on req object instead?
-    const newAccessToken = await createAccessToken(
-      payload.sub as string,
-      payload.email as string,
-    );
-    const { token: newRefreshToken, tokenId: newTokenId } =
-      await createRefreshToken(payload.sub as string, payload.email as string);
-
-    const token = new Token({
-      tokenId: newTokenId,
-      userId: payload.sub as string,
-      familyId: storedToken.familyId,
-      deviceInfo: storedToken.deviceInfo,
-    });
-
-    console.log("saving token: ", token.tokenId);
-    await token.save();
-
-    const user = await userController.getUserById(payload.sub);
+    const user = await userController.getUserById(session.userId);
 
     if (!user) {
       console.log("valid token, could not find user");
       return new ErrorResponse("Something went wrong");
     }
 
+    const newToken = await sessionController.rotateSession(session.userId);
+    console.log("rotating session token, new token: ", newToken);
+
     console.log("refreshed, user is: ", user.name, "\n");
-    request.cookies.set("refreshToken", newRefreshToken, {
+    request.cookies.set(isProduction ? "__Host-session" : "session", newToken, {
       maxAge: 60 * 60 * 24 * 7,
       httpOnly: true,
       secure: true,
-      path: "/refresh",
+      sameSite: "lax",
+      path: "/",
     });
 
-    return new DataResponse<AccessData>({ accessToken: newAccessToken, user });
+    return new DataResponse<UserData>({
+      email: user.email,
+      name: user.name,
+    });
   } catch (error) {
     console.log(error);
     return new ErrorResponse("Invalid refresh token", 401);
@@ -224,18 +124,32 @@ export async function refresh(request: BunRequest): Promise<Response> {
 export async function logout(
   request: BunRequest,
 ): Promise<DataResponse<{ message: string }> | ErrorResponse> {
+  const logger = (msg: string) => {
+    console.log(`[logout] ${msg}`);
+  };
   try {
-    const refreshToken = request.cookies.get("refreshToken");
+    logger("attempt to get token from cookie");
+    const isProduction = process.env.NODE_ENV === "production";
+    const token = request.cookies.get(
+      isProduction ? "__Host-session" : "session",
+    );
 
-    if (!refreshToken) {
-      console.info("no refresh token");
+    if (!token) {
+      logger("no token found in cookie");
       return new ErrorResponse("Refresh token required", 400);
     }
 
-    const payload = await verifyRefreshToken(refreshToken);
-    console.log("[logout] revoking token: ", payload.jti);
-    await revokeToken(payload.jti as string);
+    const session = await sessionController.getAuthenticatedSession(token);
 
+    if (!session) {
+      logger("no session found");
+      throw new Error("session token invalid");
+    }
+
+    logger("deleting old session: " + token);
+    await sessionController.revokeSession(token);
+
+    logger("logging out");
     return new DataResponse({ message: "Log out successful" });
   } catch (error) {
     console.log("[/logout] Something went wrong: ", error);
