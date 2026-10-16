@@ -7,7 +7,7 @@ import type {
 } from "../models/socketEvents";
 import { Server } from "socket.io";
 import { sessionController } from "./sessionController";
-import { CookieMap } from "bun";
+import { CookieMap, randomUUIDv7 } from "bun";
 import { userController } from "./userController";
 
 const logger = (msg: string) => {
@@ -23,6 +23,9 @@ export const engine = new Engine({
   },
 });
 
+const lobby: Map<string, string> = new Map();
+
+// SECTION io
 const io = new Server<
   ClientToServerEvents,
   ServerToClientEvents,
@@ -39,64 +42,48 @@ io.use(async (socket, next) => {
   const token = cookies.get(isProduction ? "__Host-session" : "session");
 
   logger("checking for session token");
-  if (token) {
-    const session = await sessionController.getAuthenticatedSession(token);
-    if (session) {
-      logger("found session");
-      const user = await userController.getUserById(session.userId);
-      if (!user) {
-        logger("failed to find user");
-        throw new Error("Unable to find user");
-      }
-
-      socket.data.username = user.name;
-      return next();
-    }
+  if (!token) {
+    return next(new Error("no token"));
   }
 
-  throw new Error("Invalid session?");
+  logger("retrieving session");
+  const session = await sessionController.getAuthenticatedSession(token);
+  if (!session) {
+    return next(new Error("unable to find session"));
+  }
+
+  logger("found session, retrieving user");
+  const user = await userController.getUserById(session.userId);
+  if (!user) {
+    logger("failed to find user");
+    return next(new Error("unable to find user"));
+  }
+
+  socket.data.username = user.name;
+  socket.data.connectionId = randomUUIDv7(); //NOTE: This ID is meant to obfuscate and function in place of the session token
+  return next();
 });
 
 io.on("connection", (socket) => {
-  const users = [];
-  for (let [id, socket] of io.of("/").sockets) {
-    users.push({
-      userId: id,
-      username: socket.data.username,
-      sessionId: socket.data.sessionId,
-    });
-  }
+  socket.join("lobby");
 
-  socket.join(socket.data.username);
-
-  socket.on("chat", ({ content, to }) => {
-    logger(`[SOCKET] chat received: , ${content}, for: ${to}`);
-    socket.to(to).to(socket.data.username).emit("chat", {
-      content,
-      from: socket.data.username,
-      to,
-    });
+  lobby.set(socket.data.connectionId, socket.data.username);
+  const onlineUsers = Array.from(lobby, ([k, v], index) => {
+    return { connectionId: k, username: v };
   });
 
-  socket.emit("session", {
-    sessionId: socket.data.sessionId,
-    username: socket.data.username,
-  });
-
-  socket.emit("users", users);
+  socket.emit("users", onlineUsers);
 
   socket.broadcast.emit("userConnected", {
-    sessionId: socket.data.sessionId,
-    userId: socket.id,
+    connectionId: socket.data.connectionId,
     username: socket.data.username,
   });
 
   socket.on("disconnect", async () => {
     logger("disconnect");
     socket.broadcast.emit("userDisconnected", {
-      userId: socket.id,
+      connectionId: socket.data.connectionId,
       username: socket.data.username,
-      sessionId: socket.data.sessionId,
     });
   });
 });

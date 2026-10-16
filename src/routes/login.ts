@@ -32,7 +32,7 @@ export async function register(
       email: user.email,
     });
   } catch (error) {
-    console.error("[/register]: ", error);
+    console.error("[register]: ", error);
     if (error instanceof Error && error.message === "User already exists") {
       return new ErrorResponse(
         "There is already an account registered to this email",
