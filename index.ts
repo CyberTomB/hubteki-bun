@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import { login, logout, refresh, register } from "./src/routes/login";
 import { engine } from "./src/controllers/socketController";
-import { CorsResponse } from "./src/models/response";
+import { CorsResponse, DataResponse } from "./src/models/response";
+import { withAuth } from "./src/middleware/auth";
 
 async function main() {
   // Connect to database
@@ -50,6 +51,12 @@ const server = Bun.serve({
       POST: async (req) => {
         return await logout(req);
       },
+    },
+    "/test": {
+      OPTIONS: () => new CorsResponse(),
+      POST: withAuth(async (req) => {
+        return new DataResponse("this endpoint was validated using middleware");
+      }),
     },
   },
   ...engine.handler(),

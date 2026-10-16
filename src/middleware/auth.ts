@@ -18,7 +18,7 @@ export async function authMiddleware(
   );
 
   if (!token) {
-    console.log("no token");
+    logger("no token");
     throw new Error("no session token found");
   }
 

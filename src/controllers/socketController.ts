@@ -6,7 +6,7 @@ import type {
   SocketData,
 } from "../models/socketEvents";
 import { Server } from "socket.io";
-import { sessionStore } from "../utils/sessionStore";
+import { sessionController } from "./sessionController";
 
 export const engine = new Engine({
   path: "/socket.io/",
@@ -27,7 +27,7 @@ const io = new Server<
 
 io.bind(engine);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   // FIXME - There's a more robust way of handling the user info; I think DB calls are okay here so long as use only gets called on io calls
   console.log(
     "[SOCKET] checking for user and session: ",
@@ -36,12 +36,10 @@ io.use((socket, next) => {
 
   const sessionId = socket.handshake.auth.sessionId;
   if (sessionId) {
-    const session = sessionStore.findSession(sessionId);
+    const session = await sessionController.getAuthenticatedSession(sessionId);
     if (session) {
       console.log("found session");
-      socket.data.sessionId = sessionId;
-      // socket.userId = session.userId;
-      socket.data.username = session.username;
+      socket.data.username = "BOB";
       return next();
     }
   }
@@ -98,11 +96,6 @@ io.on("connection", (socket) => {
       userId: socket.id,
       username: socket.data.username,
       sessionId: socket.data.sessionId,
-    });
-
-    sessionStore.saveSession(socket.data.sessionId, {
-      userId: socket.id,
-      username: socket.data.username,
     });
   });
 });
